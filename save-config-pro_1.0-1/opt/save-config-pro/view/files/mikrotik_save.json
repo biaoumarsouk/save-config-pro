@@ -1,0 +1,16 @@
+[
+    {
+        "mac": "0C:D8:E1:9D:00:00",
+        "ip": "192.168.10.4",
+        "status": true,
+        "name": "Rmikrotik",
+        "system": "default",
+        "credentials": {
+            "username": "admin",
+            "password": "Mikrotik2025",
+            "enable_password": null
+        },
+        "subnet": "192.168.10.0/24",
+        "ftp_server": "192.168.10.3"
+    }
+]

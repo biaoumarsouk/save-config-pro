@@ -1,0 +1,58 @@
+[
+    {
+        "mac": "AA:BB:CC:80:01:00",
+        "ip": "192.168.10.1",
+        "status": true,
+        "name": "Switch",
+        "system": "IOS",
+        "credentials": {
+            "username": "admin",
+            "password": "Cisco2025",
+            "enable_password": "Cisco2025"
+        },
+        "subnet": "192.168.10.0/24",
+        "ftp_server": "192.168.10.3"
+    },
+    {
+        "mac": "CA:01:3F:7D:00:1C",
+        "ip": "192.168.10.6",
+        "status": true,
+        "name": "Router",
+        "system": "IOS",
+        "credentials": {
+            "username": "admin",
+            "password": "Cisco2025",
+            "enable_password": null
+        },
+        "subnet": "192.168.10.0/24",
+        "ftp_server": "192.168.10.3"
+    },
+    {
+        "mac": "AA:BB:CC:80:02:00",
+        "ip": "192.168.10.2",
+        "status": true,
+        "name": "rr",
+        "system": "IOS",
+        "credentials": {
+            "username": "admin",
+            "password": "Cisco2025",
+            "enable_password": "Cisco2025"
+        },
+        "subnet": "192.168.10.0/24",
+        "ftp_server": "192.168.10.3"
+    },
+    {
+        "mac": "CA:02:C9:B8:00:1C",
+        "ip": "192.168.20.6",
+        "status": true,
+        "name": "gg",
+        "system": "IOS",
+        "credentials": {
+            "username": "admin",
+            "password": "Cisco2025",
+            "enable_password": null
+        },
+        "subnet": "192.168.20.0/24",
+        "ftp_server": "192.168.20.3"
+    }
+]

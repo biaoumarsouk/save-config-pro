@@ -1,0 +1,10 @@
+Package: save-config-pro
+Version: 1.0-1
+Section: utils
+Priority: optional
+Architecture: all
+Maintainer: Marsouk
+Depends: python3, python3-pip, python3-tk, sudo
+Description: Application Save Config Pro - outil de sauvegarde de configurations réseau.
+
+

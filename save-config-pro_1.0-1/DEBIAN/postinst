@@ -1,0 +1,4 @@
+#!/bin/bash
+chmod 755 /usr/local/bin/save-config-pro
+chmod 644 /usr/share/icons/hicolor/64x64/apps/save-config-pro.png
+gtk-update-icon-cache /usr/share/icons/hicolor/

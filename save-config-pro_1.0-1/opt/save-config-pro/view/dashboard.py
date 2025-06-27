@@ -1,0 +1,639 @@
+import tkinter as tk
+from tkinter import ttk, messagebox, filedialog
+import os
+import json
+import subprocess
+import socket
+import paramiko
+import ipaddress
+import psutil
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+import matplotlib.pyplot as plt
+from datetime import datetime, timedelta
+import time
+
+class Dashboard(tk.Frame):
+    def __init__(self, parent, controller, theme_manager):
+        super().__init__(parent)
+        self.controller = controller
+        self.theme_manager = theme_manager
+        self.theme_manager.register_widget(self, 'bg_main')
+
+        # Charger les réseaux enregistrés
+        self.saved_networks = self.load_saved_networks()
+
+        # Conteneur principal avec grid
+        self.main_container = tk.Frame(self)
+        self.main_container.pack(fill="both", expand=True)
+        self.theme_manager.register_widget(self.main_container, 'bg_main')
+
+        # Configuration des lignes et colonnes
+        self.main_container.grid_rowconfigure(0, weight=1)  # Ligne pour le haut (graphique + contenu droit)
+        self.main_container.grid_rowconfigure(1, weight=0)  # Ligne pour les stats du bas (fixe)
+        self.main_container.grid_columnconfigure(0, weight=1)  # Colonne graphique
+        self.main_container.grid_columnconfigure(1, weight=3)  # Colonne contenu droit
+
+        # Zone du graphique (en haut à gauche)
+        self.chart_frame = tk.Frame(self.main_container)
+        self.chart_frame.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
+        self.after(0, self.create_charts)
+        self.theme_manager.register_widget(self.chart_frame, 'bg_main')
+        self.theme_manager.register_callback(self.update_chart_colors)
+
+        # Ajout de l'heure système
+        self.clock_frame = tk.Frame(self.chart_frame)
+        self.clock_frame.pack(side="bottom", fill="x", pady=(10, 0))
+        self.theme_manager.register_widget(self.clock_frame, 'bg_main')
+
+
+        self.clock_label = tk.Label(self.clock_frame, 
+                                  text="Prochaine sauvegarde:",
+                                  font=("Arial", 10, "bold"))
+        self.clock_label.pack()
+        self.theme_manager.register_widget(self.clock_label, 'bg_main', 'fg_main')
+
+        self.clock_value = tk.Label(self.clock_frame, 
+                                  text="", 
+                                  font=("Arial", 14))
+        self.clock_value.pack()
+        self.theme_manager.register_widget(self.clock_value, 'bg_main', 'fg_main')
+
+        # Mettre à jour l'heure système
+        self.update_clock()
+
+        # Conteneur pour la partie droite (tableaux et services)
+        self.right_container = tk.Frame(self.main_container)
+        self.right_container.grid(row=0, column=1, sticky="nsew", padx=10, pady=10)
+        self.theme_manager.register_widget(self.right_container, 'bg_main')
+
+        # Conteneur pour les statistiques en bas
+        self.bottom_stats_frame = tk.Frame(self.main_container)
+        self.bottom_stats_frame.grid(row=1, column=0, columnspan=2, sticky="ew", padx=10, pady=10)
+        self.theme_manager.register_widget(self.bottom_stats_frame, 'bg_main')
+
+        # Sections pour les statistiques
+        self.sections = [
+            {"title": "Réseau disponible",      "count_func": self.count_reseau_disponible,     "callback": self.controller.scann},
+            {"title": "Réseau enregistrés",     "count_func": self.count_reseau_enregistres,    "callback": self.controller.show_sous_reseaux_enregistres},
+            {"title": "Fichiers sauvegardés",   "count_func": self.count_fichiers_sauvegardes,  "callback": self.controller.show_saverestauration},
+            {"title": "Appareils enrégistrés",  "count_func": self.count_appareils_enr,        "callback": self.controller.show_schedule},
+            {"title": "Appareil en sauvegarde", "count_func": self.count_appareil_en_sauv,     "callback": self.controller.show_saverestauration},
+            {"title": "Pannes enregistrées",    "count_func": self.count_pannes,               "callback": self.controller.show_saverestauration},
+        ]
+
+        # Création des statistiques
+        for i, s in enumerate(self.sections):
+            row, col = divmod(i, 3)  # Deux lignes, trois colonnes
+            frame = tk.LabelFrame(self.bottom_stats_frame, text=s["title"],
+                                font=("Arial", 12, "bold"),
+                                bd=2, relief="groove", labelanchor="n")
+            frame.grid(row=row, column=col, padx=10, pady=10, sticky="nsew")
+            self.theme_manager.register_widget(frame, 'bg_main', 'fg_main')
+
+            lbl = tk.Label(frame, text=str(s["count_func"]()),
+                         font=("Arial", 30, "bold"),
+                         fg=self.theme_manager.fg_main)
+            lbl.pack(expand=True)
+            self.theme_manager.register_widget(lbl, 'bg_main', 'fg_main')
+
+            frame.bind("<Button-1>", lambda e, cb=s["callback"]: cb())
+            lbl.bind("<Button-1>",   lambda e, cb=s["callback"]: cb())
+
+        # Rendre les colonnes proportionnelles
+        for i in range(3):
+            self.bottom_stats_frame.grid_columnconfigure(i, weight=1)
+
+        # Frame du tableau principal dans right_container
+        self.table_frame = tk.Frame(self.right_container)
+        self.table_frame.pack(fill="both", expand=True, pady=10)
+        self.theme_manager.register_widget(self.table_frame, 'bg_main')
+
+        # Frame intérieur pour Treeview + Scrollbar
+        inner_frame = tk.Frame(self.table_frame)
+        inner_frame.pack(fill="both", expand=True)
+
+        # Treeview
+        self.columns = ("Equipements", "Mac", "Type", "Etat")
+        self.tree = ttk.Treeview(inner_frame, columns=self.columns, show="headings", height=7)
+        for col in self.columns:
+            self.tree.heading(col, text=col)
+            self.tree.column(col, anchor="center", width=230)
+
+        # Scrollbar
+        self.scrollbar = ttk.Scrollbar(inner_frame, orient="vertical", command=self.tree.yview)
+        self.tree.configure(yscrollcommand=self.scrollbar.set)
+
+        # Placement
+        self.tree.pack(side="left", fill="both", expand=True)
+        self.scrollbar.pack(side="right", fill="y")
+
+        self.tree.bind("<Double-1>", self.on_select)
+        self.remplir_treeview()
+
+        # Frame pour les états des services
+        self.services_frame = tk.Frame(self.right_container)
+        self.services_frame.pack(fill="x", pady=10)
+        self.theme_manager.register_widget(self.services_frame, 'bg_main')
+
+        # Serveur FTP
+        self.ftp_frame = tk.LabelFrame(self.services_frame, text="État du serveur FTP",
+                                     font=("Arial", 10, "bold"),
+                                     bd=2, relief="groove")
+        self.ftp_frame.pack(side="left", pady=10, padx=(0, 4), fill="both", expand=True)
+        self.theme_manager.register_widget(self.ftp_frame, 'bg_main', 'fg_main')
+
+        self.ftp_status = tk.Label(self.ftp_frame, text="❌", font=("Arial", 24))
+        self.ftp_status.pack(pady=10)
+        self.theme_manager.register_widget(self.ftp_status, 'bg_main', 'fg_main')
+
+        self.ftp_label = tk.Label(self.ftp_frame, text="Serveur FTP non actif")
+        self.ftp_label.pack()
+        self.theme_manager.register_widget(self.ftp_label, 'bg_main', 'fg_main')
+
+        # Stockage total
+        self.stock_frame = tk.LabelFrame(self.services_frame, text="Stockage total",
+                                       font=("Arial", 10, "bold"),
+                                       bd=2, relief="groove")
+        self.stock_frame.pack(side="right", pady=10, padx=(4, 0), fill="both", expand=True)
+        self.theme_manager.register_widget(self.stock_frame, 'bg_main', 'fg_main')
+
+        self.stock_valeur = tk.Label(self.stock_frame, text="", font=("Arial", 24))
+        self.stock_valeur.pack(pady=10)
+        self.theme_manager.register_widget(self.stock_valeur, 'bg_main', 'fg_main')
+
+        # Ansible
+        self.ansible_frame = tk.LabelFrame(self.services_frame, text="État d'Ansible",
+                                        font=("Arial", 10, "bold"),
+                                        bd=2, relief="groove")
+        self.ansible_frame.pack(side="right", pady=10, padx=(2, 2), fill="both", expand=True)
+        self.theme_manager.register_widget(self.ansible_frame, 'bg_main', 'fg_main')
+
+        self.ansible_status = tk.Label(self.ansible_frame, text="❌", font=("Arial", 24))
+        self.ansible_status.pack(pady=10)
+        self.theme_manager.register_widget(self.ansible_status, 'bg_main', 'fg_main')
+
+        self.ansible_label = tk.Label(self.ansible_frame, text="Ansible non configuré")
+        self.ansible_label.pack()
+        self.theme_manager.register_widget(self.ansible_label, 'bg_main', 'fg_main')
+
+        # Table FTP
+        self.ftp_table_frame = tk.Frame(self.right_container)
+        self.ftp_table_frame.pack(fill="both", expand=False, pady=(10, 0))
+        self.theme_manager.register_widget(self.ftp_table_frame, 'bg_main', 'fg_main')
+
+        scrollbar = ttk.Scrollbar(self.ftp_table_frame, orient="vertical")
+        scrollbar.pack(side="right", fill="y")
+
+        self.ftp_tree = ttk.Treeview(
+            self.ftp_table_frame,
+            columns=("Nom", "Taille", "Heure"),
+            show="headings",
+            height=5,
+            yscrollcommand=scrollbar.set
+        )
+        scrollbar.config(command=self.ftp_tree.yview)
+
+        for col in ("Nom", "Taille", "Heure"):
+            self.ftp_tree.heading(col, text=col)
+            self.ftp_tree.column(col, anchor="center")
+
+        self.ftp_tree.pack(fill="both", expand=True, side="left")
+        self.remplir_fichiers_ftp()
+        self.check_services_status()
+
+    def create_charts(self):
+        """Crée les graphiques dans le coin supérieur gauche"""
+        # Compter les équipements par type
+        counts = self.count_equipments_by_type()
+        
+        # Filtrer les types avec au moins un équipement
+        filtered_counts = {k: v for k, v in counts.items() if v > 0}
+        
+        # Figure matplotlib pour le camembert
+        fig, ax = plt.subplots(figsize=(5, 4), dpi=100)
+        fig.patch.set_facecolor(self.theme_manager.bg_main)
+        ax.set_facecolor(self.theme_manager.bg_main)
+
+        if not filtered_counts:
+            # Cas où aucun équipement n'est trouvé
+            ax.text(0.5, 0.5, "Aucun équipement enregistré", 
+                ha='center', va='center', 
+                color=self.theme_manager.fg_main,
+                fontsize=12)
+            ax.axis('off')  # Désactive les axes
+        else:
+            # Création du camembert normal
+            labels = list(filtered_counts.keys())
+            values = list(filtered_counts.values())
+            
+            ax.pie(values, labels=labels, autopct='%1.1f%%', startangle=90,
+                textprops={'color': self.theme_manager.fg_main},
+                wedgeprops={'linewidth': 1, 'edgecolor': self.theme_manager.bg_main})
+            ax.set_title("Répartition des équipements enregistrés", 
+                        color=self.theme_manager.fg_main)
+
+        # Ajout du camembert dans Tkinter
+        self.canvas = FigureCanvasTkAgg(fig, master=self.chart_frame)
+        self.canvas.draw()
+        self.canvas.get_tk_widget().pack(fill="both", expand=True)
+
+
+    def update_chart_colors(self):
+        """Met à jour les couleurs du diagramme en fonction du thème actuel"""
+        if hasattr(self, "canvas"):
+            self.canvas.get_tk_widget().destroy()
+
+        # Recalcul des données
+        counts = self.count_equipments_by_type()
+        labels = list(counts.keys())
+        values = list(counts.values())
+
+        # Nouvelle figure avec couleurs mises à jour
+        fig, ax = plt.subplots(figsize=(5, 4), dpi=100)
+        fig.patch.set_facecolor(self.theme_manager.bg_main)
+        ax.set_facecolor(self.theme_manager.bg_main)
+
+        ax.pie(
+            values,
+            labels=labels,
+            autopct='%1.1f%%',
+            startangle=90,
+            textprops={'color': self.theme_manager.fg_main},
+            wedgeprops={'linewidth': 1, 'edgecolor': self.theme_manager.bg_main}
+        )
+        ax.set_title("Répartition des équipements enrégistrés", color=self.theme_manager.fg_main)
+
+        self.canvas = FigureCanvasTkAgg(fig, master=self.chart_frame)
+        self.canvas.draw()
+        self.canvas.get_tk_widget().pack(fill="both", expand=True)
+
+
+
+
+    def update_clock(self):
+        try:
+            # Chemin absolu vers le fichier de config partagé
+            config_path = os.path.abspath(os.path.join("view", "files", "backup_schedule_config.json"))
+
+            with open(config_path, "r") as f:
+                config = json.load(f)
+
+            running = config.get("running", False)
+            interval = config.get("interval_seconds", 0)
+            last_start_time = config.get("last_start_time")
+
+            if running and last_start_time:
+                elapsed = time.time() - last_start_time
+                remaining = max(0, int(interval - (elapsed % interval)))
+
+                # Convertir en Jours:Heures:Minutes:Secondes
+                days, rem = divmod(remaining, 86400)
+                hours, rem = divmod(rem, 3600)
+                minutes, seconds = divmod(rem, 60)
+
+                countdown = f"{days}j:{hours:02}:{minutes:02}:{seconds:02}"
+                self.clock_value.config(text=countdown)
+            else:
+                self.clock_value.config(text="0j:00:00:00")
+
+        except Exception as e:
+            print("Erreur de lecture de la configuration :", e)
+            self.clock_value.config(text="Erreur")
+
+        # Relancer la mise à jour dans 1 seconde (réagit au changement de running)
+        if self.clock_value.winfo_exists():
+            self.clock_value.after(1000, self.update_clock)
+
+        
+    def count_equipments_by_type(self):
+        """Compte les équipements par type à partir des fichiers JSON"""
+        types = {
+            "cisco": "cisco_save.json",
+            "mikrotik": "mikrotik_save.json",
+            "fortinet": "fortinet_save.json"
+        }
+        
+        counts = {}
+        for eq_type, filename in types.items():
+            file_path = os.path.join(os.path.dirname(__file__), 'files', filename)
+            counts[eq_type] = 0  # Valeur par défaut
+            
+            if os.path.exists(file_path):
+                try:
+                    with open(file_path, 'r') as f:
+                        data = json.load(f)
+                        if isinstance(data, list):  # Vérifie si c'est une liste
+                            counts[eq_type] = len(data)
+                except (json.JSONDecodeError, TypeError):
+                    counts[eq_type] = 0
+        
+        # Retourne le dictionnaire (correction de la faute de frappe: 'count' -> 'counts')
+        return counts
+
+    # Fonction pour remplir les fichiers FTP avec heure, taille, nom
+    def remplir_fichiers_ftp(self):
+        ftp_dir = os.path.expanduser("/home/ftpuser")
+        if os.path.exists(ftp_dir):
+            # ⬇️ Filtrer uniquement les fichiers .cfg ou .rsc
+            fichiers = [
+                f for f in os.listdir(ftp_dir)
+                if os.path.isfile(os.path.join(ftp_dir, f)) and f.lower().endswith(('.cfg', '.rsc'))
+            ]
+
+            self.ftp_tree.delete(*self.ftp_tree.get_children())
+
+            taille_totale = 0  # Initialiser la taille totale
+
+            if fichiers:
+                for f in fichiers:
+                    chemin = os.path.join(ftp_dir, f)
+                    taille = os.path.getsize(chemin)
+                    taille_totale += taille
+                    heure_modif = os.path.getmtime(chemin)
+                    from datetime import datetime
+                    modif_str = datetime.fromtimestamp(heure_modif).strftime("%d/%m/%Y %H:%M:%S")
+                    taille_kb = f"{taille / 1024:.1f} KB"
+                    self.ftp_tree.insert("", "end", values=(f, taille_kb, modif_str))
+            else:
+                self.ftp_tree.insert("", "end", values=("Aucun fichier sauvegardé", "", ""))
+
+            # Mettre à jour le Label "Stockage total"
+            if taille_totale < 10_000:  # < 10 000 KB
+                taille_str = f"{taille_totale / 1024:.1f} KB"
+            elif taille_totale < 100_000_000:  # < 100 000 MB = 100 GB
+                taille_str = f"{taille_totale / (1024**2):.1f} MB"
+            else:
+                taille_str = f"{taille_totale / (1024**3):.2f} GB"
+
+            self.stock_valeur.config(text=taille_str)
+
+        else:
+            self.stock_valeur.config(text="0 KB")
+            self.ftp_tree.delete(*self.ftp_tree.get_children())
+            self.ftp_tree.insert("", "end", values=("Aucun fichier sauvegardé", "", ""))
+
+        # Vérifier l'état des services
+        self.check_services_status()
+
+
+
+    def on_select(self, event):
+        print("select")
+
+    def load_saved_networks(self):
+        networks_file = os.path.join(os.path.dirname(__file__), 'files', 'networks.json')
+        if os.path.exists(networks_file):
+            with open(networks_file, 'r') as f:
+                try:
+                    return json.load(f)
+                except json.JSONDecodeError:
+                    return []
+        return []
+
+    def check_services_status(self):
+        # Vérifier l'état du serveur FTP
+        ftp_active = self.check_ftp_service()
+        if ftp_active:
+            self.ftp_status.config(text="✔️")
+            self.ftp_label.config(text="Serveur FTP actif")
+        else:
+            self.ftp_status.config(text="❌")
+            self.ftp_label.config(text="Serveur FTP non actif")
+
+        # Vérifier l'état d'Ansible
+        ansible_configured = self.check_ansible_config()
+        if ansible_configured:
+            self.ansible_status.config(text="✔️")
+            self.ansible_label.config(text="Ansible configuré")
+        else:
+            self.ansible_status.config(text="❌")
+            self.ansible_label.config(text="Ansible non configuré")
+
+    def check_ftp_service(self):
+        """Vérifie si le service FTP est actif"""
+        try:
+            # Vérifier si le processus vsftpd est en cours d'exécution
+            result = subprocess.run(['pgrep', 'vsftpd'], 
+                                  stdout=subprocess.PIPE, 
+                                  stderr=subprocess.PIPE)
+            return result.returncode == 0
+        except Exception:
+            return False
+
+    def check_ansible_config(self):
+        """Vérifie si Ansible est correctement configuré"""
+        try:
+            # Vérifier si on peut exécuter une commande Ansible simple
+            result = subprocess.run(['ansible', '--version'], 
+                                   stdout=subprocess.PIPE, 
+                                   stderr=subprocess.PIPE)
+            return result.returncode == 0
+        except Exception:
+            return False
+
+    def count_reseau_disponible(self):
+        interfaces = psutil.net_if_addrs()
+        count = 0
+
+        for interface_name, addrs in interfaces.items():
+            for addr in addrs:
+                if addr.family.name == 'AF_INET' and addr.address != '127.0.0.1':
+                    try:
+                        ip_obj = ipaddress.IPv4Interface(f"{addr.address}/{addr.netmask}")
+                        count += 1
+                    except Exception:
+                        pass
+        return count
+
+    def count_reseau_enregistres(self):
+        return len(self.saved_networks)
+
+    def count_fichiers_sauvegardes(self):
+        """
+        Compte tous les fichiers avec extension .cfg ou .rsc dans /home/ftpuser.
+        """
+        ftp_dir = os.path.expanduser("/home/ftpuser")
+        if not os.path.exists(ftp_dir):
+            return 0
+
+        return sum(
+            1 for f in os.listdir(ftp_dir)
+            if os.path.isfile(os.path.join(ftp_dir, f)) and f.lower().endswith(('.cfg', '.rsc'))
+        )
+
+
+    def count_appareils_enr(self):
+        fichiers = {
+            "cisco": "cisco_save.json",
+            "mikrotik": "mikrotik_save.json",
+            "huawei": "huawei_save.json",
+            "juniper": "juniper_save.json",
+            "fortinet":"fortinet_save.json"
+        }
+        
+        total = 0
+        for type_eq, filename in fichiers.items():
+            file_path = os.path.join(os.path.dirname(__file__), 'files', filename)
+            if os.path.exists(file_path):
+                with open(file_path, 'r') as f:
+                    try:
+                        data = json.load(f)
+                        total += len(data)
+                    except json.JSONDecodeError:
+                        continue
+        return total
+
+    def count_appareil_en_sauv(self):
+        fichiers = {
+            "cisco": "cisco_save.json",
+            "mikrotik": "mikrotik_save.json",
+            "huawei": "huawei_save.json",
+            "juniper": "juniper_save.json",
+            "fortinet":"fortinet_save.json"
+        }
+
+        count = 0
+        for type_eq, filename in fichiers.items():
+            file_path = os.path.join(os.path.dirname(__file__), 'files', filename)
+            if not os.path.exists(file_path):
+                continue
+
+            with open(file_path, 'r') as f:
+                try:
+                    data = json.load(f)
+                except json.JSONDecodeError:
+                    continue
+
+            for equipement in data:
+                ip = equipement.get("ip", "")
+                credentials = equipement.get("credentials", {})
+                username = credentials.get("username", "")
+                password = credentials.get("password", "")
+                status = equipement.get("status", False)
+
+                ping_ok = self.ping(ip)
+                ssh_ok = self.test_ssh_connection(ip, username, password)
+
+                if status and ping_ok and ssh_ok:
+                    count += 1
+
+        return count
+
+
+    def count_pannes(self):
+        fichiers = {
+            "cisco": "cisco_save.json",
+            "mikrotik": "mikrotik_save.json",
+            "huawei": "huawei_save.json",
+            "juniper": "juniper_save.json",
+            "fortinet":"fortinet_save.json"
+        }
+        
+        count = 0
+        for type_eq, filename in fichiers.items():
+            file_path = os.path.join(os.path.dirname(__file__), 'files', filename)
+            if not os.path.exists(file_path):
+                continue
+
+            with open(file_path, 'r') as f:
+                try:
+                    data = json.load(f)
+                except json.JSONDecodeError:
+                    continue
+
+            for equipement in data:
+                ip = equipement.get("ip", "")
+                credentials = equipement.get("credentials", {})
+                username = credentials.get("username", "")
+                password = credentials.get("password", "")
+
+                ping_ok = self.ping(ip)
+                ssh_ok = self.test_ssh_connection(ip, username, password)
+                
+                if not ping_ok or not ssh_ok:
+                    count += 1
+        return count
+
+    def remplir_treeview(self):
+        # Vider le treeview actuel
+        for item in self.tree.get_children():
+            self.tree.delete(item)
+
+        fichiers = {
+            "cisco": "cisco_save.json",
+            "mikrotik": "mikrotik_save.json",
+            "huawei": "huawei_save.json",
+            "juniper": "juniper_save.json",
+            "fortinet": "fortinet_save.json"
+        }
+
+        equipements_trouves = False
+
+        for type_eq, filename in fichiers.items():
+            file_path = os.path.join(os.path.dirname(__file__), 'files', filename)
+
+            if not os.path.exists(file_path):
+                continue
+
+            with open(file_path, 'r') as f:
+                try:
+                    data = json.load(f)
+                except (json.JSONDecodeError, IOError):
+                    continue
+
+            if not data:  # Fichier vide
+                continue
+
+            for equipement in data:
+                if not equipement:  # Équipement vide
+                    continue
+
+                name = equipement.get("name", "Inconnu")
+                mac = equipement.get("mac", "N/A")
+                ip = equipement.get("ip", "")
+
+                credentials = equipement.get("credentials", {})
+                username = credentials.get("username", "")
+                password = credentials.get("password", "")
+
+                etat = self.tester_etat_reel(ip, username, password)
+
+                self.tree.insert("", "end", values=(name, mac, type_eq, etat))
+                equipements_trouves = True
+
+        if not equipements_trouves:
+            # Afficher un message si aucun équipement n'a été trouvé
+            self.tree.insert("", "end", values=("Aucun équipement enregistré", "", "", ""))
+
+    def ping(self, ip):
+        try:
+            output = subprocess.run(['ping', '-c', '1', '-W', '1', ip],
+                                    stdout=subprocess.DEVNULL,
+                                    stderr=subprocess.DEVNULL)
+            return output.returncode == 0
+        except Exception:
+            return False
+
+    def test_ssh_connection(self, ip, username, password, timeout=3):
+        try:
+            client = paramiko.SSHClient()
+            client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+
+            client.connect(ip, username=username, password=password, timeout=timeout, allow_agent=False, look_for_keys=False)
+            client.close()
+            return True
+        except (paramiko.ssh_exception.AuthenticationException,
+                paramiko.ssh_exception.SSHException,
+                socket.error):
+            return False
+
+    def tester_etat_reel(self, ip, username, password):
+        ping_ok = self.ping(ip)
+        ssh_ok = self.test_ssh_connection(ip, username, password)
+
+        if ping_ok and ssh_ok:
+            return "✔️"
+        elif ping_ok and not ssh_ok:
+            return "⚠️"
+        else:
+            return "❌"

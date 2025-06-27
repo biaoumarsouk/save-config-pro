@@ -1,0 +1,4 @@
+paramiko
+psutil
+Pillow
+matplotlib

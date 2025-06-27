@@ -1,0 +1,3 @@
+#!/bin/bash
+cd /opt/save-config-pro
+./install.sh

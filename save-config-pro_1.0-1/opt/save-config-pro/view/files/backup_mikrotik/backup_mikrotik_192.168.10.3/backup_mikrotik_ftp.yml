@@ -1,0 +1,44 @@
+---
+# Playbook généré le 2025-06-26_15-13-11
+- name: Export, upload FTP, and cleanup on MikroTik
+  hosts: all
+  gather_facts: no
+  vars:
+    ansible_network_timeout: 60
+    export_file_name: "export_{{ inventory_hostname }}.rsc"
+    ftp_address: "192.168.10.3"
+    ftp_user: "ftpuser"
+    ftp_password: "Marsouk57"
+    ftp_dst_path: "/mikrotik_{{ inventory_hostname }}_{{ lookup('pipe', 'date +%Y-%m-%d_%H-%M-%S') }}.rsc"
+
+  tasks:
+    - name: Exporter la configuration MikroTik (.rsc)
+      community.routeros.command:
+        commands:
+          - "/export file={{ export_file_name | regex_replace('.rsc$', '') }}"
+
+    - name: Pause pour garantir que le fichier est créé
+      pause:
+        seconds: 3
+
+    - name: Transférer l'export via FTP
+      community.routeros.command:
+        commands:
+          - >
+            /tool fetch address={{ ftp_address }}
+            src-path={{ export_file_name }}
+            user={{ ftp_user }}
+            mode=ftp
+            password={{ ftp_password }}
+            dst-path={{ ftp_dst_path }}
+            upload=yes
+      register: ftp_upload
+      retries: 3
+      delay: 5
+      until: ftp_upload is success
+
+    - name: Supprimer le fichier local (.rsc)
+      community.routeros.command:
+        commands:
+          - "/file remove {{ export_file_name }}"
+      when: ftp_upload is succeeded

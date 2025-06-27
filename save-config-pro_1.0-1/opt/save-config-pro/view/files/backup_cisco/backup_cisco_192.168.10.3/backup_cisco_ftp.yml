@@ -1,0 +1,53 @@
+---
+# Playbook généré le 2025-06-26_15-13-11
+# Pour le sous-réseau: 192.168.10.0/24
+# Serveur FTP: 192.168.10.3
+
+- name: Sauvegarde des configurations Cisco via FTP
+  hosts: ciscoios
+  gather_facts: yes
+  vars:
+    ftp_server: "192.168.10.3"
+    ftp_username: "ftpuser"
+    ftp_password: "Marsouk57"
+    current_date: "{{ lookup('pipe', 'date +\"%Y-%m-%d_%H-%M-%S\"') }}"
+  tasks:
+    - name: Copier la configuration vers le serveur FTP
+      cisco.ios.ios_command:
+        commands:
+          - "copy running-config ftp://{{ ftp_username }}:{{ ftp_password }}@{{ ftp_server }}/cisco_ios_{{ inventory_hostname }}_{{ current_date }}.cfg\n\n"
+      register: result
+      ignore_errors: yes
+
+- name: Sauvegarde automatique de la configuration Cisco ASA vers FTP
+  hosts: ciscoasa
+  gather_facts: no
+  connection: network_cli
+  vars:
+    ftp_server: "192.168.10.3"
+    ftp_username: "ftpuser"
+    ftp_password: "Marsouk57"
+    backup_filename: "cisco_asa_{{ inventory_hostname_short }}_{{ lookup('pipe', 'date +\"%Y-%m-%d_%H-%M-%S\"') }}.cfg"
+  tasks:
+    - name: Exécuter la sauvegarde vers FTP
+      ansible.netcommon.cli_command:
+        command: |
+          copy /noconfirm running-config ftp://{{ ftp_username }}:{{ ftp_password }}@{{ ftp_server }}/{{ backup_filename }}
+        check_all: False
+      register: backup_result
+      retries: 3
+      delay: 10
+      ignore_errors: yes
+
+    - name: Vérifier le résultat de la sauvegarde
+      assert:
+        that:
+          - "'bytes copied' in backup_result.stdout"
+        fail_msg: "Échec de la sauvegarde FTP"
+        success_msg: "Sauvegarde réussie vers FTP"
+      when: backup_result is not skipped
+
+    - name: Afficher les détails de la sauvegarde
+      debug:
+        var: backup_result.stdout_lines
+      when: backup_result is not skipped
