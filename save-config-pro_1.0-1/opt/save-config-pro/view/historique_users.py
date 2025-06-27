@@ -26,18 +26,19 @@ class HistoriqueUsers(tk.Frame):
         header_frame.pack(fill="x", pady=10, padx=10)
         self.theme_manager.register_widget(header_frame, 'bg_main', 'fg_main')
 
+        # Titre principal
         title = tk.Label(
             header_frame,
             text="\U0001F4BB Système de Gestion des Configurations Réseaux Informatiques",
             font=("Arial", 16, "bold"),
             bg=self.theme_manager.bg_main
         )
-        title.pack(pady=20)
+        title.pack(side="left", pady=20)
         self.theme_manager.register_widget(title, 'bg_main', 'fg_main')
 
-        # Boutons d'action à droite
+        # Boutons d'action (droite)
         btn_frame = tk.Frame(header_frame, bg=self.theme_manager.bg_main)
-        btn_frame.place(relx=1.0, rely=0.0, anchor="ne") 
+        btn_frame.pack(side="right", anchor="ne", padx=10)
         self.theme_manager.register_widget(btn_frame, 'bg_main', 'fg_main')
 
         btn_export = tk.Button(btn_frame, text="📤", command=self.exporter_historique, font=("Arial", 14), bd=0)
@@ -55,28 +56,32 @@ class HistoriqueUsers(tk.Frame):
 
         # Tableau
         self.table_frame = tk.Frame(self)
-        self.table_frame.pack(pady=10)
+        self.table_frame.pack(fill="both", expand=True, padx=20, pady=10)
         self.theme_manager.register_widget(self.table_frame, 'bg_main')
 
         self.columns = ("Utilisateur", "Date de Connexion", "Date de Déconnexion", "Autorisation")
-        self.tree = ttk.Treeview(self.table_frame, columns=self.columns, show="headings", height=14)
-
+        self.tree = ttk.Treeview(self.table_frame, columns=self.columns, show="headings")
         for col in self.columns:
             self.tree.heading(col, text=col)
-            self.tree.column(col, anchor="center", width=273)
+            self.tree.column(col, anchor="center", stretch=True)
 
         vsb = ttk.Scrollbar(self.table_frame, orient="vertical", command=self.tree.yview)
         self.tree.configure(yscrollcommand=vsb.set)
-        self.tree.grid(row=0, column=0, sticky="nsew")
-        vsb.grid(row=0, column=1, sticky="ns")
 
-        self.table_frame.grid_rowconfigure(0, weight=1)
-        self.table_frame.grid_columnconfigure(0, weight=1)
+        self.tree.pack(side="left", fill="both", expand=True)
+        vsb.pack(side="right", fill="y")
 
         self.tree.tag_configure('refuse', foreground="red")
-
-        # Clic sur ligne → supprimer individuel
+        self.tree.bind("<Configure>", self.adjust_column_widths)
         self.tree.bind("<Double-1>", self.supprimer_ligne_selectionnee)
+
+    
+    def adjust_column_widths(self, event):
+        total_width = event.width
+        col_count = len(self.columns)
+        if col_count > 0:
+            for col in self.columns:
+                self.tree.column(col, width=total_width // col_count)
 
     def load_historique(self):
         if os.path.exists(FICHIER_HISTORIQUE):

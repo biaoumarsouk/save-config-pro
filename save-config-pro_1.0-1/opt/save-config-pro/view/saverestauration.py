@@ -362,6 +362,7 @@ class SaveRestauration(tk.Frame):
    
     def create_widgets(self):
         """Crée les widgets principaux"""
+
         # Titre principal
         title = tk.Label(
             self,
@@ -380,24 +381,29 @@ class SaveRestauration(tk.Frame):
         self.mode_label.pack(pady=10)
         self.theme_manager.register_widget(self.mode_label, 'bg_main', 'fg_main')
 
-        # Frame du tableau
+        # Frame du tableau (responsive)
         self.table_frame = tk.Frame(self)
-        self.table_frame.pack(pady=10)
+        self.table_frame.pack(fill="both", expand=True, padx=20, pady=10)
         self.theme_manager.register_widget(self.table_frame, 'bg_main')
 
         # Treeview
         self.columns = ("Nom", "Adresse IP", "Types", "Connectés")
-        self.tree = ttk.Treeview(self.table_frame, columns=self.columns, show="headings", height=14)
+        self.tree = ttk.Treeview(self.table_frame, columns=self.columns, show="headings")
         for col in self.columns:
             self.tree.heading(col, text=col)
-            self.tree.column(col, anchor="center", width=273)
+            self.tree.column(col, anchor="center", stretch=True)
 
         # Scrollbar
         self.scrollbar = ttk.Scrollbar(self.table_frame, orient="vertical", command=self.tree.yview)
         self.tree.configure(yscrollcommand=self.scrollbar.set)
+
+        # Placement responsive
+        self.tree.pack(side="left", fill="both", expand=True)
         self.scrollbar.pack(side="right", fill="y")
-        self.tree.pack()
         self.tree.bind("<Double-1>", self.on_select)
+
+        # Redimensionnement auto des colonnes
+        self.tree.bind("<Configure>", self.adjust_column_widths)
 
         # Frame de statut
         self.status_frame = tk.Frame(self)
@@ -425,6 +431,7 @@ class SaveRestauration(tk.Frame):
         status_label.grid(row=0, column=1, padx=20)
         self.theme_manager.register_widget(status_label, 'bg_main', 'fg_success')
 
+        # Bouton d'export positionné en haut à droite (fixé mais propre)
         export_button = tk.Button(
             self,
             text="🖨️",
@@ -436,9 +443,17 @@ class SaveRestauration(tk.Frame):
             cursor="hand2",
             command=self.export_to_json
         )
-        export_button.place(relx=1.0, y=10, anchor="ne", x=-20)
+        export_button.place(relx=1.0, rely=0.0, anchor="ne", x=-20, y=10)
         self.theme_manager.register_widget(export_button, 'bg_main', 'fg_main', 'bg_hover')
-        
+
+    def adjust_column_widths(self, event):
+        total_width = event.width
+        col_count = len(self.columns)
+        if col_count > 0:
+            for col in self.columns:
+                self.tree.column(col, width=total_width // col_count)
+
+
 
     def is_alive(self, ip):
         param = "-n" if platform.system().lower() == "windows" else "-c"

@@ -32,7 +32,15 @@ class NetworkConfigApp(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("\U0001F4BB Système de Gestion des Configurations Réseaux Informatiques")
-        self.geometry("1520x970")
+        screen_width = self.winfo_screenwidth()
+        screen_height = self.winfo_screenheight()
+
+        # Par exemple, utiliser 80% de la largeur et de la hauteur de l'écran
+        window_width = int(screen_width * 0.8)
+        window_height = int(screen_height * 0.8)
+
+        self.geometry(f"{window_width}x{window_height}")
+        self.menu_visible = False  # Ou True selon l'état initial souhaité
         self.protocol("WM_DELETE_WINDOW", self.fermer)
         icon_path = "/usr/share/icons/hicolor/64x64/apps/save-config-pro.png"
         if os.path.exists(icon_path):
@@ -264,8 +272,9 @@ class NetworkConfigApp(tk.Tk):
     def create_buttons(self):
         """Crée les boutons principaux"""
         self.button_frame = tk.Frame(self.main_content)
-        self.button_frame.pack(pady=10)
+        self.button_frame.pack(fill="x", pady=10,padx=10)  # Remplir horizontalement
         self.theme_manager.register_widget(self.button_frame, 'bg_main', 'fg_success')
+
         button_configs = [
             ("🏠", "Tableau de bord", self.show_dashboard),
             ("🖧", "Réseaux", self.open_scan_choice_window),
@@ -275,30 +284,26 @@ class NetworkConfigApp(tk.Tk):
             ("⚙️", "Paramètres", self.show_settings),
         ]
 
-        for i, (emoji, label, command) in enumerate(button_configs):
-            # Frame du bouton
-            frame = tk.Frame(self.button_frame, width=125, height=80,highlightbackground=self.theme_manager.fg_main,
-        highlightthickness=1,
-        bd=0)
-            frame.grid(row=0, column=i, padx=35, pady=10)
-            frame.pack_propagate(False)
-            self.theme_manager.register_widget(
-                frame, 
-                'bg_main',
-                highlight_prop='fg_main'
-            )
+        # Configuration responsive des colonnes
+        for i in range(len(button_configs)):
+            self.button_frame.grid_columnconfigure(i, weight=1)
 
-            # Icône
+        for i, (emoji, label, command) in enumerate(button_configs):
+            frame = tk.Frame(self.button_frame, height=80, highlightbackground=self.theme_manager.fg_main,
+                            highlightthickness=1, bd=0)
+            frame.grid(row=0, column=i, padx=10, sticky="nsew")  # sticky pour l'étirement
+            frame.pack_propagate(False)
+            self.theme_manager.register_widget(frame, 'bg_main', highlight_prop='fg_main')
+
             emoji_label = tk.Label(frame, text=emoji, font=("Helvetica", 24))
             emoji_label.pack(pady=(10, 0))
             self.theme_manager.register_widget(emoji_label, 'bg_main', 'fg_main')
 
-            # Texte
             text_label = tk.Label(frame, text=label, font=("Helvetica", 11, "bold"))
             text_label.pack()
             self.theme_manager.register_widget(text_label, 'bg_main', 'fg_main')
 
-            # Gestion des événements
+            # Interactions
             def on_enter(event, f=frame, e=emoji_label, t=text_label):
                 for w in [f, e, t]:
                     w.config(bg=self.theme_manager.bg_hover)
@@ -319,6 +324,7 @@ class NetworkConfigApp(tk.Tk):
                 widget.bind("<Leave>", on_leave)
                 widget.bind("<ButtonPress-1>", on_press)
                 widget.bind("<ButtonRelease-1>", on_release)
+
 
     def toggle_theme(self):
         """Bascule le thème et rafraîchit l'interface"""

@@ -104,41 +104,64 @@ class UsersManager(tk.Frame):
         title.pack(pady=20)
         self.theme_manager.register_widget(title, 'bg_main', 'fg_main')
 
-        title_sub = tk.Label(self, text="Gestion des comptes", font=("Arial", 16, "bold"))
+        # Sous-titre
+        title_sub = tk.Label(
+            self,
+            text="Gestion des comptes",
+            font=("Arial", 16, "bold")
+        )
         title_sub.pack(pady=10)
         self.theme_manager.register_widget(title_sub, 'bg_main', 'fg_main')
 
-
+        # Frame du tableau (responsive)
         self.table_frame = tk.Frame(self)
-        self.table_frame.pack(pady=10)
+        self.table_frame.pack(fill="both", expand=True, padx=20, pady=10)
         self.theme_manager.register_widget(self.table_frame, 'bg_main')
 
+        # Treeview
         self.columns = ("Utilisateurs", "Compte", "Rôle", "Statut")
-        self.tree = ttk.Treeview(self.table_frame, columns=self.columns, show="headings", height=14)
+        self.tree = ttk.Treeview(self.table_frame, columns=self.columns, show="headings")
         for col in self.columns:
             self.tree.heading(col, text=col)
-            self.tree.column(col, anchor="center", width=273)
+            self.tree.column(col, anchor="center", stretch=True)
 
+        # Scrollbar verticale
         vsb = ttk.Scrollbar(self.table_frame, orient="vertical", command=self.tree.yview)
         self.tree.configure(yscrollcommand=vsb.set)
-        self.tree.grid(row=0, column=0, sticky="nsew")
-        vsb.grid(row=0, column=1, sticky="ns")
 
-        self.table_frame.grid_rowconfigure(0, weight=1)
-        self.table_frame.grid_columnconfigure(0, weight=1)
+        # Placement
+        self.tree.pack(side="left", fill="both", expand=True)
+        vsb.pack(side="right", fill="y")
 
+        # Redimensionnement des colonnes auto
+        self.tree.bind("<Configure>", self.adjust_column_widths)
         self.tree.bind("<Double-1>", self.on_user_select)
 
+        # Barre de statut
         status_bar = tk.Frame(self)
-        status_bar.pack(pady=10)
+        status_bar.pack(fill="x", pady=10)
         self.theme_manager.register_widget(status_bar, 'bg_main')
 
+        # Compteur utilisateurs
         self.user_count_var = tk.StringVar()
         self.update_user_count()
 
-        count_label = tk.Label(status_bar, textvariable=self.user_count_var, font=("Arial", 10))
-        count_label.pack(side=tk.LEFT, padx=10)
+        count_label = tk.Label(
+            status_bar,
+            textvariable=self.user_count_var,
+            font=("Arial", 10)
+        )
+        count_label.pack(fill='x', expand=True)
+        count_label.config(anchor='center')
         self.theme_manager.register_widget(count_label, 'bg_main', 'fg_main')
+
+    def adjust_column_widths(self, event):
+        total_width = event.width
+        col_count = len(self.columns)
+        if col_count > 0:
+            for col in self.columns:
+                self.tree.column(col, width=total_width // col_count)
+
 
     def update_user_count(self):
         total = len(self.users)

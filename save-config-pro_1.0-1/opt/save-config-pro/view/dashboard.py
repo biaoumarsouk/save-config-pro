@@ -68,36 +68,8 @@ class Dashboard(tk.Frame):
 
         # Conteneur pour les statistiques en bas
         self.bottom_stats_frame = tk.Frame(self.main_container)
-        self.bottom_stats_frame.grid(row=1, column=0, columnspan=2, sticky="ew", padx=10, pady=10)
+        self.bottom_stats_frame.grid(row=1, column=0, columnspan=2, sticky="ew", pady=10)
         self.theme_manager.register_widget(self.bottom_stats_frame, 'bg_main')
-
-        # Sections pour les statistiques
-        self.sections = [
-            {"title": "Réseau disponible",      "count_func": self.count_reseau_disponible,     "callback": self.controller.scann},
-            {"title": "Réseau enregistrés",     "count_func": self.count_reseau_enregistres,    "callback": self.controller.show_sous_reseaux_enregistres},
-            {"title": "Fichiers sauvegardés",   "count_func": self.count_fichiers_sauvegardes,  "callback": self.controller.show_saverestauration},
-            {"title": "Appareils enrégistrés",  "count_func": self.count_appareils_enr,        "callback": self.controller.show_schedule},
-            {"title": "Appareil en sauvegarde", "count_func": self.count_appareil_en_sauv,     "callback": self.controller.show_saverestauration},
-            {"title": "Pannes enregistrées",    "count_func": self.count_pannes,               "callback": self.controller.show_saverestauration},
-        ]
-
-        # Création des statistiques
-        for i, s in enumerate(self.sections):
-            row, col = divmod(i, 3)  # Deux lignes, trois colonnes
-            frame = tk.LabelFrame(self.bottom_stats_frame, text=s["title"],
-                                font=("Arial", 12, "bold"),
-                                bd=2, relief="groove", labelanchor="n")
-            frame.grid(row=row, column=col, padx=10, pady=10, sticky="nsew")
-            self.theme_manager.register_widget(frame, 'bg_main', 'fg_main')
-
-            lbl = tk.Label(frame, text=str(s["count_func"]()),
-                         font=("Arial", 30, "bold"),
-                         fg=self.theme_manager.fg_main)
-            lbl.pack(expand=True)
-            self.theme_manager.register_widget(lbl, 'bg_main', 'fg_main')
-
-            frame.bind("<Button-1>", lambda e, cb=s["callback"]: cb())
-            lbl.bind("<Button-1>",   lambda e, cb=s["callback"]: cb())
 
         # Rendre les colonnes proportionnelles
         for i in range(3):
@@ -201,6 +173,34 @@ class Dashboard(tk.Frame):
         self.remplir_fichiers_ftp()
         self.check_services_status()
 
+        # Sections pour les statistiques
+        self.sections = [
+            {"title": "Réseau disponible",      "count_func": self.count_reseau_disponible,     "callback": self.controller.scann},
+            {"title": "Réseau enregistrés",     "count_func": self.count_reseau_enregistres,    "callback": self.controller.show_sous_reseaux_enregistres},
+            {"title": "Fichiers sauvegardés",   "count_func": self.count_fichiers_sauvegardes,  "callback": self.controller.show_saverestauration},
+            {"title": "Appareils enrégistrés",  "count_func": self.count_appareils_enr,        "callback": self.controller.show_schedule},
+            {"title": "Appareil en sauvegarde", "count_func": self.count_appareil_en_sauv,     "callback": self.controller.show_saverestauration},
+            {"title": "Pannes enregistrées",    "count_func": self.count_pannes,               "callback": self.controller.show_saverestauration},
+        ]
+
+    # Création des statistiques
+        for i, s in enumerate(self.sections):
+            row, col = divmod(i, 3)  # Deux lignes, trois colonnes
+            frame = tk.LabelFrame(self.bottom_stats_frame, text=s["title"],
+                                font=("Arial", 12, "bold"),
+                                bd=2, relief="groove", labelanchor="n")
+            frame.grid(row=row, column=col, padx=10, pady=10, sticky="nsew")
+            self.theme_manager.register_widget(frame, 'bg_main', 'fg_main')
+
+            lbl = tk.Label(frame, text=str(s["count_func"]()),
+                         font=("Arial", 30, "bold"),
+                         fg=self.theme_manager.fg_main)
+            lbl.pack(expand=True)
+            self.theme_manager.register_widget(lbl, 'bg_main', 'fg_main')
+
+            frame.bind("<Button-1>", lambda e, cb=s["callback"]: cb())
+            lbl.bind("<Button-1>",   lambda e, cb=s["callback"]: cb())
+            
     def create_charts(self):
         """Crée les graphiques dans le coin supérieur gauche"""
         # Compter les équipements par type
@@ -355,7 +355,7 @@ class Dashboard(tk.Frame):
                     taille_kb = f"{taille / 1024:.1f} KB"
                     self.ftp_tree.insert("", "end", values=(f, taille_kb, modif_str))
             else:
-                self.ftp_tree.insert("", "end", values=("Aucun fichier sauvegardé", "", ""))
+                self.ftp_tree.insert("", "end", values=("Aucun fichier sauvegardé", "", ""), tags=("empty",))
 
             # Mettre à jour le Label "Stockage total"
             if taille_totale < 10_000:  # < 10 000 KB
@@ -370,7 +370,7 @@ class Dashboard(tk.Frame):
         else:
             self.stock_valeur.config(text="0 KB")
             self.ftp_tree.delete(*self.ftp_tree.get_children())
-            self.ftp_tree.insert("", "end", values=("Aucun fichier sauvegardé", "", ""))
+            self.ftp_tree.insert("", "end", values=("Aucun fichier sauvegardé", "", ""), tags=("empty",))
 
         # Vérifier l'état des services
         self.check_services_status()
@@ -449,17 +449,12 @@ class Dashboard(tk.Frame):
         return len(self.saved_networks)
 
     def count_fichiers_sauvegardes(self):
-        """
-        Compte tous les fichiers avec extension .cfg ou .rsc dans /home/ftpuser.
-        """
-        ftp_dir = os.path.expanduser("/home/ftpuser")
-        if not os.path.exists(ftp_dir):
-            return 0
-
-        return sum(
-            1 for f in os.listdir(ftp_dir)
-            if os.path.isfile(os.path.join(ftp_dir, f)) and f.lower().endswith(('.cfg', '.rsc'))
-        )
+        all_items = self.ftp_tree.get_children()
+        count = 0
+        for item in all_items:
+            if "empty" not in self.ftp_tree.item(item, "tags"):
+                count += 1
+        return count
 
 
     def count_appareils_enr(self):

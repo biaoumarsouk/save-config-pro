@@ -267,14 +267,6 @@ class BackupSchedulerManager:
 
 
 
-import os
-import json
-import tkinter as tk
-from tkinter import ttk, messagebox
-import threading
-import weakref
-from view.composants.scriptrunner import ScriptRunner
-
 class BackupScheduler(tk.Frame):
     fichiers = {
         "MikroTik": "mikrotik_save.json",
@@ -320,15 +312,235 @@ class BackupScheduler(tk.Frame):
         self.pulse_direction = 1
         self.pulse_animation_id = None
 
+
     def _create_widgets(self):
         """Crée tous les widgets de l'interface"""
-        self._create_countdown_frame()
-        self._create_animated_button()
-        self._create_equipement_frame()
-        self._create_planning_frame()
-        self._create_form_frame()
-        self._create_equipements_frame()
-        self._create_equi_save_frame()
+        # Configuration du grid principal
+        self.grid_rowconfigure(0, weight=1)
+        self.grid_rowconfigure(1, weight=10)
+        self.grid_columnconfigure(0, weight=1)
+        
+        # Frame supérieur
+        self.top_frame = tk.Frame(self, padx=10, pady=10)
+        self.top_frame.grid(row=0, column=0, sticky="nsew")
+        self.theme_manager.register_widget(self.top_frame, 'bg_main')
+        
+        # Configuration des colonnes du top_frame avec largeurs égales
+        for i in range(4):
+            self.top_frame.grid_columnconfigure(i, weight=1, uniform="top_frames")
+        
+        # Frame inférieur
+        self.bottom_frame = tk.Frame(self)
+        self.bottom_frame.grid(row=1, column=0, sticky="nsew", padx=10, pady=(0,10))
+        self.theme_manager.register_widget(self.bottom_frame, 'bg_main')
+        
+        # Création des widgets
+        self._create_equipement_frame()      # Colonne 0
+        self._create_planning_frame()        # Colonne 1
+        self._create_form_frame()            # Colonne 2
+        self._create_countdown_frame()       # Colonne 3
+        self._create_animated_button()       # Bouton central
+        self._create_equipements_frame()     # Bas gauche
+        self._create_equi_save_frame()       # Bas droit
+
+    def _create_countdown_frame(self):
+        """Crée le frame du compte à rebours"""
+        self.countdown_frame = tk.LabelFrame(
+            self.top_frame,
+            text="Prochaines sauvegardes",
+            font=("Arial", 12, "bold"),
+            highlightthickness=0,
+            bd=2,
+            relief="groove",
+            labelanchor="n"
+        )
+        self.countdown_frame.grid(row=0, column=3, sticky="nsew", padx=5, pady=5, ipadx=5, ipady=5)
+        self.theme_manager.register_widget(self.countdown_frame, 'bg_main', 'fg_main')
+
+        # Conteneur interne avec grid pour un meilleur contrôle
+        inner_frame = tk.Frame(self.countdown_frame)
+        inner_frame.pack(expand=True, fill='both')
+        self.theme_manager.register_widget(inner_frame, 'bg_main')
+
+        # Configuration des colonnes
+        for i in range(4):
+            inner_frame.grid_columnconfigure(i, weight=1, uniform="countdown_cols")
+
+        # Labels titres
+        labels_texts = ["JJ", "HH", "MN", "SC"]
+        self.labels = []
+        for i, txt in enumerate(labels_texts):
+            lbl = tk.Label(inner_frame, text=txt, font=("Courier", 12, "bold"))
+            lbl.grid(row=0, column=i, sticky="", pady=(10,0))
+            self.theme_manager.register_widget(lbl, 'bg_main', 'fg_main')
+            self.labels.append(lbl)
+
+        # Labels valeurs
+        self.days_label = tk.Label(inner_frame, text="00", font=("Courier", 20, "bold"), fg="red")
+        self.days_label.grid(row=1, column=0, pady=(0,10))
+        self.theme_manager.register_widget(self.days_label, 'bg_main')
+
+        self.hours_label = tk.Label(inner_frame, text="00", font=("Courier", 20, "bold"), fg="red")
+        self.hours_label.grid(row=1, column=1, pady=(0,10))
+        self.theme_manager.register_widget(self.hours_label, 'bg_main')
+
+        self.minutes_label = tk.Label(inner_frame, text="00", font=("Courier", 20, "bold"), fg="red")
+        self.minutes_label.grid(row=1, column=2, pady=(0,10))
+        self.theme_manager.register_widget(self.minutes_label, 'bg_main')
+
+        self.seconds_label = tk.Label(inner_frame, text="00", font=("Courier", 20, "bold"), fg="red")
+        self.seconds_label.grid(row=1, column=3, pady=(0,10))
+        self.theme_manager.register_widget(self.seconds_label, 'bg_main')
+
+    def _create_equipement_frame(self):
+        """Crée le frame d'équipement"""
+        self.equipement_frame = tk.LabelFrame(
+            self.top_frame,
+            text="Equipements enregistrés",
+            font=("Arial", 12, "bold"),
+            highlightthickness=0,
+            bd=2,
+            relief="groove",
+            labelanchor="n"
+        )
+        self.equipement_frame.grid(row=0, column=0, sticky="nsew", padx=5, pady=5, ipadx=5, ipady=5)
+        self.theme_manager.register_widget(self.equipement_frame, 'bg_main', 'fg_main')
+        
+        # Conteneur pour centrer le contenu
+        container = tk.Frame(self.equipement_frame)
+        container.pack(expand=True, fill='both')
+        self.theme_manager.register_widget(container, 'bg_main')
+        
+        self.total_equip_label = tk.Label(container, text="", font=("Arial", 70, "bold"))
+        self.total_equip_label.pack(expand=True)
+        self.theme_manager.register_widget(self.total_equip_label, 'bg_main', 'fg_main')
+
+    def _create_planning_frame(self):
+        """Crée le frame de planification"""
+        self.planning_frame = tk.LabelFrame(
+            self.top_frame,
+            text="Création de sauvegarde",
+            font=("Arial", 12, "bold"),
+            highlightthickness=0,
+            bd=2,
+            relief="groove",
+            labelanchor="n"
+        )
+        self.planning_frame.grid(row=0, column=1, sticky="nsew", padx=5, pady=5, ipadx=5, ipady=5)
+        self.theme_manager.register_widget(self.planning_frame, 'bg_main', 'fg_main')
+        
+        # Conteneur pour centrer le contenu
+        container = tk.Frame(self.planning_frame)
+        container.pack(expand=True, fill='both')
+        self.theme_manager.register_widget(container, 'bg_main')
+        
+        self.planning_label = tk.Label(container, text="📌", font=("Arial", 55, "bold"), foreground=self.theme_manager.fg_main)
+        self.planning_label.pack(expand=True)
+        self.theme_manager.register_widget(self.planning_label, 'bg_main', 'fg_main')
+        
+        # Liaison des événements
+        self.planning_frame.bind("<Button-1>", lambda event: self.creer_sauvegarde())
+        self.planning_label.bind("<Button-1>", lambda event: self.creer_sauvegarde())
+
+    def _create_form_frame(self):
+        """Crée le frame du formulaire"""
+        self.form_frame = tk.LabelFrame(
+            self.top_frame,
+            text="Programmer",
+            font=("Arial", 12, "bold"),
+            padx=10,
+            pady=10,
+            bd=2, 
+            relief="groove",
+            labelanchor="n"
+        )
+        self.form_frame.grid(row=0, column=2, sticky="nsew", padx=5, pady=5, ipadx=5, ipady=5)
+        self.theme_manager.register_widget(self.form_frame, 'bg_main', 'fg_main')
+
+        # Conteneur principal
+        main_container = tk.Frame(self.form_frame)
+        main_container.pack(expand=True, fill='both')
+        self.theme_manager.register_widget(main_container, 'bg_main')
+
+        # Configuration des colonnes pour les spinboxes
+        for i in range(4):
+            main_container.grid_columnconfigure(i, weight=1, uniform="form_cols")
+
+        self.spinboxes = []
+        self.spinbox_vars = []
+
+        for idx, (label, var_name, max_val) in enumerate([
+            ("Jours", "days_var", 99),
+            ("Heures", "hours_var", 23),
+            ("Minutes", "minutes_var", 59),
+            ("Secondes", "seconds_var", 59)
+        ]):
+            # Frame pour chaque spinbox
+            frame = tk.Frame(main_container)
+            frame.grid(row=0, column=idx, sticky="nsew", padx=5)
+            self.theme_manager.register_widget(frame, 'bg_main')
+
+            # Label
+            lbl = tk.Label(frame, text=label)
+            lbl.pack(pady=(0,5))
+            self.theme_manager.register_widget(lbl, 'bg_main', 'fg_main')
+
+            # Spinbox
+            var = tk.StringVar(value="0")
+            setattr(self, var_name, var)
+            self.spinbox_vars.append(var)
+
+            sp = tk.Spinbox(
+                frame,
+                from_=0, to=max_val,
+                textvariable=var,
+                width=6,
+                justify="center",
+                relief="groove",
+                borderwidth=2
+            )
+            sp.pack()
+            
+            # Configuration du style
+            sp.configure(
+                bg=getattr(self.theme_manager, 'bg_main'),
+                fg=getattr(self.theme_manager, 'fg_main'),
+                insertbackground=getattr(self.theme_manager, 'fg_main'),
+                selectbackground=getattr(self.theme_manager, 'bg_hover'),
+                selectforeground=getattr(self.theme_manager, 'fg_main')
+            )
+            
+            # Gestion des événements
+            sp.bind("<FocusIn>", lambda event, v=var: event.widget.delete(0, "end") if v.get() == "0" else None)
+            sp.bind("<FocusOut>", lambda event, v=var: v.set("0") if v.get() == "" else None)
+            
+            self.spinboxes.append(sp)
+            self.theme_manager.register_widget(sp, 'bg_main', 'fg_main')
+
+        # Boutons de contrôle
+        self.button_frame = tk.Frame(main_container)
+        self.button_frame.grid(row=1, column=0, columnspan=4, pady=(10,0), sticky="nsew")
+        self.theme_manager.register_widget(self.button_frame, 'bg_main', 'fg_main')
+
+        # Configuration des colonnes pour les boutons
+        self.button_frame.grid_columnconfigure(0, weight=1)
+        self.button_frame.grid_columnconfigure(1, weight=1)
+
+        self.start_btn = tk.Button(
+            self.button_frame,
+            text="Démarrer",
+            command=self.on_start_clicked
+        )
+        self.start_btn.grid(row=0, column=0, padx=5, sticky="ew")
+        self.theme_manager.register_widget(self.start_btn, 'bg_main', 'fg_main', 'bg_hover')
+
+        self.stop_btn = tk.Button(
+            self.button_frame,
+            text="Arrêter",
+            command=self.on_stop_clicked
+        )
+        self.stop_btn.grid(row=0, column=1, padx=5, sticky="ew")
+        self.theme_manager.register_widget(self.stop_btn, 'bg_main', 'fg_main', 'bg_hover')
 
     def _setup_initial_state(self):
         """Configure l'état initial de l'interface"""
@@ -339,46 +551,6 @@ class BackupScheduler(tk.Frame):
         
         self.manager.register_callback(self.update_countdown)
 
-    def _create_countdown_frame(self):
-        """Crée le frame du compte à rebours"""
-        self.countdown_frame = tk.LabelFrame(
-            self,
-            text="Prochaines sauvegardes",
-            font=("Arial", 12, "bold"),
-            highlightthickness=0,
-            bd=2,
-            relief="groove",
-            labelanchor="n"
-        )
-        self.countdown_frame.place(relx=1.0, rely=0.0, anchor="ne", x=-20, y=20, width=340, height=150)
-        self.theme_manager.register_widget(self.countdown_frame, 'bg_main', 'fg_main')
-
-        # Labels titres
-        labels_texts = ["JJ", "HH", "MN", "SC"]
-        self.labels = []
-        for i, txt in enumerate(labels_texts):
-            x_pos = 40 + i * 85
-            lbl = tk.Label(self.countdown_frame, text=txt, font=("Courier", 12, "bold"))
-            lbl.place(x=x_pos, y=40, anchor="center")
-            self.theme_manager.register_widget(lbl, 'bg_main', 'fg_main')
-            self.labels.append(lbl)
-
-        # Labels valeurs
-        self.days_label = tk.Label(self.countdown_frame, text="00", font=("Courier", 20, "bold"), fg="red")
-        self.days_label.place(x=40, y=90, anchor="center")
-        self.theme_manager.register_widget(self.days_label, 'bg_main')
-
-        self.hours_label = tk.Label(self.countdown_frame, text="00", font=("Courier", 20, "bold"), fg="red")
-        self.hours_label.place(x=125, y=90, anchor="center")
-        self.theme_manager.register_widget(self.hours_label, 'bg_main')
-
-        self.minutes_label = tk.Label(self.countdown_frame, text="00", font=("Courier", 20, "bold"), fg="red")
-        self.minutes_label.place(x=210, y=90, anchor="center")
-        self.theme_manager.register_widget(self.minutes_label, 'bg_main')
-
-        self.seconds_label = tk.Label(self.countdown_frame, text="00", font=("Courier", 20, "bold"), fg="red")
-        self.seconds_label.place(x=295, y=90, anchor="center")
-        self.theme_manager.register_widget(self.seconds_label, 'bg_main')
 
     def _create_animated_button(self):
         """Crée le bouton animé"""
@@ -406,123 +578,6 @@ class BackupScheduler(tk.Frame):
         
         self.theme_manager.register_widget(self.animated_canvas, 'bg_main', 'fg_main')
 
-    def _create_equipement_frame(self):
-        """Crée le frame d'équipement"""
-        self.equipement_frame = tk.LabelFrame(
-            self,
-            text="Equipements enregistrés",
-            font=("Arial", 12, "bold"),
-            highlightthickness=0,
-            bd=2,
-            relief="groove",
-            labelanchor="n"
-        )
-        self.equipement_frame.place(relx=0.0, rely=0.0, x=20, y=20, width=340, height=150, anchor="nw")
-        self.theme_manager.register_widget(self.equipement_frame, 'bg_main', 'fg_main')
-        
-        self.total_equip_label = tk.Label(self.equipement_frame, text="", font=("Arial", 70, "bold"))
-        self.total_equip_label.place(relx=0.5, rely=0.5, anchor="center")
-        self.theme_manager.register_widget(self.total_equip_label, 'bg_main', 'fg_main')
-
-    def _create_planning_frame(self):
-        """Crée le frame de planification"""
-        self.planning_frame = tk.LabelFrame(
-            self,
-            text="Création de sauvegarde",
-            font=("Arial", 12, "bold"),
-            highlightthickness=0,
-            bd=2,
-            relief="groove",
-            labelanchor="n"
-        )
-        self.planning_frame.place(relx=0.0, rely=0.0, x=380, y=20, width=340, height=150, anchor="nw")
-        self.theme_manager.register_widget(self.planning_frame, 'bg_main', 'fg_main')
-        
-        self.planning_label = tk.Label(self.planning_frame, text="📌", font=("Arial", 55, "bold"), foreground=self.theme_manager.fg_main)
-        self.planning_label.place(relx=0.5, rely=0.5, anchor="center")
-        self.theme_manager.register_widget(self.planning_label, 'bg_main', 'fg_main')
-        
-        # Liaison des événements
-        self.planning_frame.bind("<Button-1>", lambda event: self.creer_sauvegarde())
-        self.planning_label.bind("<Button-1>", lambda event: self.creer_sauvegarde())
-
-    def _create_form_frame(self):
-        """Crée le frame du formulaire"""
-        self.form_frame = tk.LabelFrame(
-            self,
-            text="Programmer",
-            font=("Arial", 12, "bold"),
-            padx=10, pady=10,
-            bd=2, relief="groove",
-            labelanchor="n"
-        )
-        self.form_frame.place(relx=1.0, rely=0.0, anchor="ne", x=-380, y=20, width=340, height=150)
-        self.theme_manager.register_widget(self.form_frame, 'bg_main', 'fg_main')
-
-        self.spinboxes = []
-        self.spinbox_vars = []
-
-        for idx, (label, var_name, max_val) in enumerate([
-            ("Jours", "days_var", 99),
-            ("Heures", "hours_var", 23),
-            ("Minutes", "minutes_var", 59),
-            ("Secondes", "seconds_var", 59)
-        ]):
-            lbl = tk.Label(self.form_frame, text=label)
-            lbl.grid(row=0, column=idx, padx=6)
-            self.theme_manager.register_widget(lbl, 'bg_main', 'fg_main')
-
-            var = tk.StringVar(value="0")
-            setattr(self, var_name, var)
-            self.spinbox_vars.append(var)
-
-            sp = tk.Spinbox(
-                self.form_frame,
-                from_=0, to=max_val,
-                textvariable=var,
-                width=6,
-                justify="center",
-                relief="groove",
-                borderwidth=2
-            )
-            sp.grid(row=1, column=idx, padx=6)
-            
-            # Configuration du style
-            sp.configure(
-                bg=getattr(self.theme_manager, 'bg_main'),
-                fg=getattr(self.theme_manager, 'fg_main'),
-                insertbackground=getattr(self.theme_manager, 'fg_main'),
-                selectbackground=getattr(self.theme_manager, 'bg_hover'),
-                selectforeground=getattr(self.theme_manager, 'fg_main')
-            )
-            
-            # Gestion des événements
-            sp.bind("<FocusIn>", lambda event, v=var: event.widget.delete(0, "end") if v.get() == "0" else None)
-            sp.bind("<FocusOut>", lambda event, v=var: v.set("0") if v.get() == "" else None)
-            
-            self.spinboxes.append(sp)
-            self.theme_manager.register_widget(sp, 'bg_main', 'fg_main')
-
-        # Boutons de contrôle
-        self.button_frame = tk.Frame(self.form_frame)
-        self.button_frame.grid(row=2, column=0, columnspan=4, pady=10)
-        self.theme_manager.register_widget(self.button_frame, 'bg_main', 'fg_main')
-
-        self.start_btn = tk.Button(
-            self.button_frame,
-            text="Démarrer",
-            command=self.on_start_clicked
-        )
-        self.start_btn.pack(side="left", padx=10)
-        self.theme_manager.register_widget(self.start_btn, 'bg_main', 'fg_main', 'bg_hover')
-
-        self.stop_btn = tk.Button(
-            self.button_frame,
-            text="Arrêter",
-            command=self.on_stop_clicked
-        )
-        self.stop_btn.pack(side="left", padx=10)
-        self.theme_manager.register_widget(self.stop_btn, 'bg_main', 'fg_main', 'bg_hover')
 
     def _create_equipements_frame(self):
         """Crée le frame de la liste des équipements"""

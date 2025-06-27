@@ -149,6 +149,7 @@ class NetworkScanner(tk.Frame):
 
     def create_widgets(self):
         """Crée les widgets principaux"""
+
         # Titre principal
         title = tk.Label(
             self,
@@ -167,23 +168,30 @@ class NetworkScanner(tk.Frame):
         self.mode_label.pack(pady=10)
         self.theme_manager.register_widget(self.mode_label, 'bg_main', 'fg_main')
 
-        # Frame du tableau
+        # Frame du tableau (doit être expansible)
         self.table_frame = tk.Frame(self)
-        self.table_frame.pack(pady=10)
+        self.table_frame.pack(fill="both", expand=True, padx=20, pady=10)
         self.theme_manager.register_widget(self.table_frame, 'bg_main')
 
         # Treeview
         self.columns = ("MAC", "Adresse IP", "État", "Enregistrer")
-        self.tree = ttk.Treeview(self.table_frame, columns=self.columns, show="headings", height=14)
+        self.tree = ttk.Treeview(self.table_frame, columns=self.columns, show="headings")
         for col in self.columns:
             self.tree.heading(col, text=col)
-            self.tree.column(col, anchor="center", width=273)
+            self.tree.column(col, anchor="center", stretch=True)  # stretch=True pour qu'elles s'étendent
 
         # Scrollbar
         self.scrollbar = ttk.Scrollbar(self.table_frame, orient="vertical", command=self.tree.yview)
         self.tree.configure(yscrollcommand=self.scrollbar.set)
+
+        # Placement responsive
+        self.tree.pack(side="left", fill="both", expand=True)
         self.scrollbar.pack(side="right", fill="y")
-        self.tree.pack()
+
+        # Redimensionnement auto des colonnes
+        self.tree.bind("<Configure>", self.adjust_column_widths)
+
+        # Double-clic
         self.tree.bind("<Double-1>", self.on_select)
 
         # Frame de statut
@@ -211,7 +219,13 @@ class NetworkScanner(tk.Frame):
         )
         status_label.grid(row=0, column=1, padx=20)
         self.theme_manager.register_widget(status_label, 'bg_main', 'fg_success')
-        
+
+    def adjust_column_widths(self, event):
+        total_width = event.width
+        col_count = len(self.columns)
+        if col_count > 0:
+            for col in self.columns:
+                self.tree.column(col, width=total_width // col_count)
 
     # ... (le reste de vos méthodes existantes reste inchangé)
     def load_existing_data(self, source):
