@@ -8,6 +8,7 @@ from view.network_enregistres import SousReseauxEnregistres
 from view.plannification import BackupScheduler
 from view.composants.menu_universel import MenuUniversel
 from view.composants.menu_horizontal import BarreHaut
+from view.composants.menu_horizontal import Footer
 from view.composants.theme import ThemeManager
 from view.composants.choix_menu import ChoiceMenu
 from view.dashboard import Dashboard
@@ -102,33 +103,28 @@ class NetworkConfigApp(tk.Tk):
             widget.destroy()
 
     def create_main_widgets(self):
-        """Crée les widgets structurels principaux"""  
-        self.barre_haut = BarreHaut(
-            self,
-            self.theme_manager,
-            self.nom_utilisateur,
-            DOSSIER_PROFILS
-        )
-        # Menu vertical
+        """Crée les widgets structurels principaux"""
+        self.barre_haut = BarreHaut(self, self.theme_manager, self.nom_utilisateur, DOSSIER_PROFILS)
+
         self.vertical_menu = tk.Frame(self, width=60)
         self.vertical_menu.pack(side="left", fill="y")
         self.theme_manager.register_widget(self.vertical_menu, 'bg_secondary')
-        # Boutons du menu vertical
+
+        self.footer = Footer(self, self.theme_manager)
         self.create_vertical_menu_buttons()
-        # Menu universel
         self.menu_universel = MenuUniversel(self, self.theme_manager)
 
-        # Séparateur
         self.separator_line = tk.Frame(self, width=1)
         self.separator_line.pack(side="left", fill="y")
         self.theme_manager.register_widget(self.separator_line, 'separator')
-        
-        # Contenu principal
+
         self.main_content = tk.Frame(self)
         self.main_content.pack(side="left", fill="both", expand=True)
         self.theme_manager.register_widget(self.main_content, 'bg_main')
-        
-        self.update_networks_from_json()  # Chargement initial
+
+        # ⚠️ Ne pas initialiser self.main_zone ici si elle est recréée ailleurs
+        self.update_networks_from_json()
+
 
         
 
@@ -184,14 +180,18 @@ class NetworkConfigApp(tk.Tk):
             ("📥", "Sauvegardes", self.show_saverestauration),
             ("⏰", "Planification", self.show_schedule),
             ("⚙️", "Paramètres", self.show_settings),
-            # Le bouton utilisateurs ne sera ajouté que si admin
             *([("☺", "Utilisateurs", self.open_users_choice_window)] if role == "admin" else []),
             ("↩️", "Déconnecter", self.deconnect),
             ("🌓", "Thème", self.toggle_theme),
             ("▶", "Outils", self.toggle_menu_universel)
         ]
 
-        # Configuration du tooltip
+        # Configuration du menu vertical en grid
+        for i in range(len(icons)):
+            self.vertical_menu.grid_rowconfigure(i, weight=1)  # chaque ligne s'étire
+        self.vertical_menu.grid_columnconfigure(0, weight=1)
+
+        # Tooltip
         self.tooltip = tk.Toplevel(self)
         self.tooltip.wm_overrideredirect(True)
         self.tooltip.withdraw()
@@ -200,7 +200,8 @@ class NetworkConfigApp(tk.Tk):
         self.theme_manager.register_widget(tooltip_label, 'bg_secondary', 'fg_main')
         self.tooltip.label = tooltip_label
 
-        for icon, label, cmd in icons:
+        # Création des boutons
+        for i, (icon, label, cmd) in enumerate(icons):
             btn = tk.Button(
                 self.vertical_menu,
                 text=icon,
@@ -209,9 +210,9 @@ class NetworkConfigApp(tk.Tk):
                 bd=0,
                 highlightthickness=0,
                 width=2,
-                height=2
+                height=2,
+                command=cmd
             )
-            # Enregistrement avec le gestionnaire de thème
             self.theme_manager.register_widget(
                 btn,
                 bg_prop='bg_secondary',
@@ -219,10 +220,8 @@ class NetworkConfigApp(tk.Tk):
                 active_bg='bg_hover',
                 active_fg='fg_main'
             )
-            btn.config(command=cmd)
-            btn.pack(pady=10)
+            btn.grid(row=i, column=0, pady=5, sticky="nsew")
 
-            # Gestion des événements de souris
             btn.bind("<Enter>", lambda e, t=label: self.show_tooltip(e, t))
             btn.bind("<Leave>", lambda e: self.hide_tooltip())
 
@@ -270,11 +269,15 @@ class NetworkConfigApp(tk.Tk):
 
 
     def create_buttons(self):
-        """Crée les boutons principaux"""
-        self.button_frame = tk.Frame(self.main_content)
-        self.button_frame.pack(fill="x", pady=10,padx=10)  # Remplir horizontalement
+        # Frame principal avec des paramètres stables
+        self.button_frame = tk.Frame(self.main_zone, height=80)
+        self.button_frame.grid(row=1, column=0, sticky="ew", pady=10, padx=15)
+        self.button_frame.grid_propagate(False)
         self.theme_manager.register_widget(self.button_frame, 'bg_main', 'fg_success')
-
+        
+        # Désactive le redimensionnement pendant la création
+        self.button_frame.grid_remove()  # Cache temporairement pendant la création
+        
         button_configs = [
             ("🏠", "Tableau de bord", self.show_dashboard),
             ("🖧", "Réseaux", self.open_scan_choice_window),
@@ -284,46 +287,83 @@ class NetworkConfigApp(tk.Tk):
             ("⚙️", "Paramètres", self.show_settings),
         ]
 
-        # Configuration responsive des colonnes
+        # Configuration des colonnes avant création des boutons
         for i in range(len(button_configs)):
-            self.button_frame.grid_columnconfigure(i, weight=1)
+            self.button_frame.grid_columnconfigure(i, weight=1, uniform="btn")
 
+        # Création des boutons avec des tailles fixes
+        self.button_widgets = []
         for i, (emoji, label, command) in enumerate(button_configs):
-            frame = tk.Frame(self.button_frame, height=80, highlightbackground=self.theme_manager.fg_main,
-                            highlightthickness=1, bd=0)
-            frame.grid(row=0, column=i, padx=10, sticky="nsew")  # sticky pour l'étirement
-            frame.pack_propagate(False)
-            self.theme_manager.register_widget(frame, 'bg_main', highlight_prop='fg_main')
-
-            emoji_label = tk.Label(frame, text=emoji, font=("Helvetica", 24))
-            emoji_label.pack(pady=(10, 0))
+            btn_frame = tk.Frame(
+                self.button_frame,
+                highlightbackground=self.theme_manager.fg_main,
+                highlightthickness=1,
+                bd=0,
+                width=120,  # Largeur fixe
+                height=70   # Hauteur fixe
+            )
+            btn_frame.grid(row=0, column=i, padx=5, sticky="nsew")
+            btn_frame.grid_propagate(False)
+            self.theme_manager.register_widget(btn_frame, 'bg_main', highlight_prop='fg_main')
+            
+            # Utilisation de place pour un positionnement plus stable
+            emoji_label = tk.Label(btn_frame, text=emoji, font=("Helvetica", 22))
+            emoji_label.place(relx=0.5, rely=0.35, anchor="center")
+            
+            text_label = tk.Label(btn_frame, text=label, font=("Helvetica", 10, "bold"))
+            text_label.place(relx=0.5, rely=0.7, anchor="center")
+            
             self.theme_manager.register_widget(emoji_label, 'bg_main', 'fg_main')
-
-            text_label = tk.Label(frame, text=label, font=("Helvetica", 11, "bold"))
-            text_label.pack()
             self.theme_manager.register_widget(text_label, 'bg_main', 'fg_main')
+            
+            # Stockage des références
+            self.button_widgets.append((btn_frame, emoji_label, text_label))
+            
+            # Gestion des événements avec debounce
+            def make_event_handlers(f, e, t, cmd):
+                def on_enter(event):
+                    f.config(bg=self.theme_manager.bg_hover)
+                    e.config(bg=self.theme_manager.bg_hover)
+                    t.config(bg=self.theme_manager.bg_hover)
 
-            # Interactions
-            def on_enter(event, f=frame, e=emoji_label, t=text_label):
-                for w in [f, e, t]:
-                    w.config(bg=self.theme_manager.bg_hover)
+                def on_leave(event):
+                    f.config(bg=self.theme_manager.bg_main)
+                    e.config(bg=self.theme_manager.bg_main)
+                    t.config(bg=self.theme_manager.bg_main)
 
-            def on_leave(event, f=frame, e=emoji_label, t=text_label):
-                for w in [f, e, t]:
-                    w.config(bg=self.theme_manager.bg_main)
+                def on_press(event):
+                    f.config(bg=self.theme_manager.bg_hover)
+                    e.config(bg=self.theme_manager.bg_hover)
+                    t.config(bg=self.theme_manager.bg_hover)
+                    self.after(10, cmd)
 
-            def on_press(event, f=frame, e=emoji_label, t=text_label):
-                for w in [f, e, t]:
-                    w.config(bg=self.theme_manager.bg_hover)
+                return on_enter, on_leave, on_press, lambda e: None
 
-            def on_release(event, cmd=command):
-                cmd()
+            
+            on_enter, on_leave, on_press, on_release = make_event_handlers(
+                btn_frame, emoji_label, text_label, command
+            )
+            
+            btn_frame.bind("<Enter>", on_enter)
+            btn_frame.bind("<Leave>", on_leave)
+            btn_frame.bind("<ButtonPress-1>", on_press)
+            btn_frame.bind("<ButtonRelease-1>", on_release)
 
-            for widget in [frame, emoji_label, text_label]:
-                widget.bind("<Enter>", on_enter)
-                widget.bind("<Leave>", on_leave)
-                widget.bind("<ButtonPress-1>", on_press)
-                widget.bind("<ButtonRelease-1>", on_release)
+            emoji_label.bind("<Enter>", on_enter)
+            emoji_label.bind("<Leave>", on_leave)
+            emoji_label.bind("<ButtonPress-1>", on_press)
+            emoji_label.bind("<ButtonRelease-1>", on_release)
+
+            text_label.bind("<Enter>", on_enter)
+            text_label.bind("<Leave>", on_leave)
+            text_label.bind("<ButtonPress-1>", on_press)
+            text_label.bind("<ButtonRelease-1>", on_release)
+
+            
+        
+        # Réactive l'affichage une fois tout créé
+        self.button_frame.grid()
+        self.button_frame.update_idletasks()  # Force le calcul du layout
 
 
     def toggle_theme(self):
@@ -344,18 +384,29 @@ class NetworkConfigApp(tk.Tk):
 
     def init_scanner(self):
         self.clear_main_content()
-        # Recharge les sous-réseaux depuis le fichier JSON
-        self.update_networks_from_json()
+
+        self.main_zone = tk.Frame(self.main_content)
+        self.main_zone.pack(fill="both", expand=True)  # Utilisez pack ici pour simplifier
+        
+        # Configuration de la grille à l'intérieur de main_zone
+        self.main_zone.grid_rowconfigure(0, weight=1)  # Scanner prend l'espace disponible
+        self.main_zone.grid_rowconfigure(1, weight=0)  # Boutons taille fixe
+        self.main_zone.grid_columnconfigure(0, weight=1)
+        
+        self.theme_manager.register_widget(self.main_zone, 'bg_main')
+
+        # Crée le scanner
         self.scanner = NetworkScanner(
-            parent=self.main_content,
-            networks=self.main_content.networks,  # maintenant à jour
+            parent=self.main_zone,
+            networks=self.main_content.networks,
             theme_manager=self.theme_manager
         )
-        self.scanner.pack(expand=True, fill="both")  # Important pour l'affichage
+        self.scanner.grid(row=0, column=0, sticky="nsew")
+
+        # Crée les boutons
         self.create_buttons()
-        
-        # Lancement du scan
         self.scanner.scan_network()
+
 
 
     # Actions fictives pour les autres menus
@@ -398,21 +449,30 @@ class NetworkConfigApp(tk.Tk):
         def task(update_progress):
             update_progress(30, "Préparation...")
             return BackupScheduler(
-                parent=self.main_content,
+                parent=self.main_zone,  # Changé pour utiliser main_zone
                 theme_manager=self.theme_manager
             )
 
         def after_task(backup_scheduler):
-            backup_scheduler.pack(fill="both", expand=True)
+            # Configuration de la grille après création
+            self.main_zone.grid_rowconfigure(0, weight=1)
+            self.main_zone.grid_rowconfigure(1, weight=0)
+            self.main_zone.grid_columnconfigure(0, weight=1)
+            
+            backup_scheduler.grid(row=0, column=0, sticky="nsew")  # Changé pack() en grid()
             self.create_buttons()
 
+        # Création du conteneur principal avant l'écran de chargement
+        self.main_zone = tk.Frame(self.main_content)
+        self.main_zone.pack(fill="both", expand=True)
+        self.theme_manager.register_widget(self.main_zone, 'bg_main')
+
         run_with_loading(
-            content_frame=self.main_content,  # ou self.parent selon ton contexte
+            content_frame=self.main_content,
             task_function=task,
             callback=after_task,
             theme_manager=self.theme_manager
         )
-
 
     def show_settings(self):
         print('Parametre')
@@ -421,40 +481,80 @@ class NetworkConfigApp(tk.Tk):
     # Dans votre classe principale
     def show_saverestauration(self):
         self.clear_main_content()
+
+        # Création du conteneur principal avec la structure standard
+        self.main_zone = tk.Frame(self.main_content)
+        self.main_zone.pack(fill="both", expand=True)
+        
+        # Configuration identique de la grille
+        self.main_zone.grid_rowconfigure(0, weight=1)  # Zone principale expansible
+        self.main_zone.grid_rowconfigure(1, weight=0)  # Zone boutons fixe
+        self.main_zone.grid_columnconfigure(0, weight=1)  # Colonne unique
+        
+        # Application du thème comme pour les autres vues
+        self.theme_manager.register_widget(self.main_zone, 'bg_main')
+
+        # Création de la vue Sauvegarde/Restauration
         self.sauvegarde_view = SaveRestauration(
-            parent=self.main_content,
+            parent=self.main_zone,  # Utilisation de main_zone au lieu de main_content
             theme_manager=self.theme_manager
         )
-        self.sauvegarde_view.pack(expand=True, fill="both")
+        self.sauvegarde_view.grid(row=0, column=0, sticky="nsew")  # Positionnement en grid
+
+        # Ajout des boutons standard
         self.create_buttons()
-        
+            
 
 
     def scann(self):
         self.clear_main_content()
-        # Créer le cadre SousReseaux
+
+        self.main_zone = tk.Frame(self.main_content)
+        self.main_zone.pack(fill="both", expand=True)  # Utilisation de pack comme dans init_scanner
+        
+        # Configuration de la grille à l'intérieur de main_zone
+        self.main_zone.grid_rowconfigure(0, weight=1)  # Contenu principal prend l'espace disponible
+        self.main_zone.grid_rowconfigure(1, weight=0)  # Boutons taille fixe
+        self.main_zone.grid_columnconfigure(0, weight=1)
+        
+        self.theme_manager.register_widget(self.main_zone, 'bg_main')
+
+        # Crée le frame SousReseaux
         self.sous_reseaux_frame = SousReseaux(
-            parent=self.main_content,
+            parent=self.main_zone,  # Changé de main_content à main_zone
             theme_manager=self.theme_manager
         )
-        self.sous_reseaux_frame.pack(fill="both", expand=True)
+        self.sous_reseaux_frame.grid(row=0, column=0, sticky="nsew")  # Utilisation de grid au lieu de pack
+
+        # Crée les boutons
         self.create_buttons()
     
 
 
     def show_sous_reseaux_enregistres(self):
         self.clear_main_content()
-        # Créer le cadre SousReseaux
-        self.sous_reseaux_frame =SousReseauxEnregistres(
-            parent=self.main_content,
+
+        self.main_zone = tk.Frame(self.main_content)
+        self.main_zone.pack(fill="both", expand=True)  # Utilisation de pack comme dans init_scanner
+        
+        # Configuration de la grille à l'intérieur de main_zone
+        self.main_zone.grid_rowconfigure(0, weight=1)  # Contenu principal prend l'espace disponible
+        self.main_zone.grid_rowconfigure(1, weight=0)  # Boutons taille fixe
+        self.main_zone.grid_columnconfigure(0, weight=1)
+        
+        self.theme_manager.register_widget(self.main_zone, 'bg_main')
+
+        # Crée le frame SousReseauxEnregistres
+        self.sous_reseaux_frame = SousReseauxEnregistres(
+            parent=self.main_zone,  # Changé de main_content à main_zone
             theme_manager=self.theme_manager
         )
-        self.sous_reseaux_frame.pack(fill="both", expand=True)
+        self.sous_reseaux_frame.grid(row=0, column=0, sticky="nsew")  # Utilisation de grid au lieu de pack
+
+        # Crée les boutons
         self.create_buttons()
 
     
-    
-
     def open_scan_choice_window(self):
         ChoiceMenu(
             parent=self,
@@ -477,25 +577,52 @@ class NetworkConfigApp(tk.Tk):
         
     def show_users(self):
         self.clear_main_content()
-        # Créer le cadre SousReseaux
-        self.user_frame =UsersManager(
-            parent=self.main_content,
+
+        self.main_zone = tk.Frame(self.main_content)
+        self.main_zone.pack(fill="both", expand=True)
+        
+        # Configuration de la grille
+        self.main_zone.grid_rowconfigure(0, weight=1)  # Zone utilisateur prend tout l'espace
+        self.main_zone.grid_rowconfigure(1, weight=0)  # Boutons en taille fixe
+        self.main_zone.grid_columnconfigure(0, weight=1)  # Colonne unique
+        
+        self.theme_manager.register_widget(self.main_zone, 'bg_main')
+
+        # Création du gestionnaire d'utilisateurs
+        self.user_frame = UsersManager(
+            parent=self.main_zone,  # Changé de main_content à main_zone
             theme_manager=self.theme_manager
         )
-        self.user_frame.pack(fill="both", expand=True)
+        self.user_frame.grid(row=0, column=0, sticky="nsew")  # Utilisation de grid
+
+        # Création des boutons
         self.create_buttons()
 
 
     def show_historique_user_frame(self):
         self.clear_main_content()
-        # Créer le cadre SousReseaux
-        self.historique_user_frame =HistoriqueUsers(
-            parent=self.main_content,
+
+        # Création du conteneur principal
+        self.main_zone = tk.Frame(self.main_content)
+        self.main_zone.pack(fill="both", expand=True)
+        
+        # Configuration de la grille
+        self.main_zone.grid_rowconfigure(0, weight=1)  # Contenu principal expansible
+        self.main_zone.grid_rowconfigure(1, weight=0)  # Barre de boutons fixe
+        self.main_zone.grid_columnconfigure(0, weight=1)  # Colonne unique
+        
+        # Application du thème
+        self.theme_manager.register_widget(self.main_zone, 'bg_main')
+
+        # Création du frame d'historique
+        self.historique_user_frame = HistoriqueUsers(
+            parent=self.main_zone,  # Parent changé pour main_zone
             theme_manager=self.theme_manager
         )
-        self.historique_user_frame.pack(fill="both", expand=True)
-        self.create_buttons()
+        self.historique_user_frame.grid(row=0, column=0, sticky="nsew")  # Positionnement en grid
 
+        # Création des boutons standard
+        self.create_buttons()
     def deconnect(self):
         """Gère la déconnexion de l'utilisateur"""
         # Chemin vers le fichier users.json

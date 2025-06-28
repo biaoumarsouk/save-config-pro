@@ -21,24 +21,34 @@ class HistoriqueUsers(tk.Frame):
         self.insert_data()
 
     def create_widgets(self):
-        # En-tête avec titre et boutons
+        """Widgets de l'historique de connexion avec layout grid responsive"""
+
+        # Configuration de la fenêtre principale
+        self.grid_rowconfigure(0, weight=0)  # Header
+        self.grid_rowconfigure(1, weight=0)  # Sous-titre
+        self.grid_rowconfigure(2, weight=1)  # Tableau
+        self.grid_columnconfigure(0, weight=1)
+
+        # === En-tête avec titre et boutons
         header_frame = tk.Frame(self, bg=self.theme_manager.bg_main)
-        header_frame.pack(fill="x", pady=10, padx=10)
+        header_frame.grid(row=0, column=0, sticky="ew", padx=10, pady=(10, 0))
+        header_frame.grid_columnconfigure(0, weight=1)  # Titre extensible
+        header_frame.grid_columnconfigure(1, weight=0)  # Boutons
         self.theme_manager.register_widget(header_frame, 'bg_main', 'fg_main')
 
-        # Titre principal
+        # Titre principal à gauche
         title = tk.Label(
             header_frame,
             text="\U0001F4BB Système de Gestion des Configurations Réseaux Informatiques",
             font=("Arial", 16, "bold"),
             bg=self.theme_manager.bg_main
         )
-        title.pack(side="left", pady=20)
+        title.grid(row=0, column=0, sticky="ew", pady=10)
         self.theme_manager.register_widget(title, 'bg_main', 'fg_main')
 
-        # Boutons d'action (droite)
+        # Boutons d'action à droite
         btn_frame = tk.Frame(header_frame, bg=self.theme_manager.bg_main)
-        btn_frame.pack(side="right", anchor="ne", padx=10)
+        btn_frame.grid(row=0, column=1, sticky="e")
         self.theme_manager.register_widget(btn_frame, 'bg_main', 'fg_main')
 
         btn_export = tk.Button(btn_frame, text="📤", command=self.exporter_historique, font=("Arial", 14), bd=0)
@@ -49,14 +59,16 @@ class HistoriqueUsers(tk.Frame):
         btn_supprimer.pack(side="right", padx=5)
         self.theme_manager.register_widget(btn_supprimer, 'bg_main', 'fg_main')
 
-        # Sous-titre
+        # === Sous-titre centré
         title_sub = tk.Label(self, text="Historique des Connexions", font=("Arial", 16, "bold"))
-        title_sub.pack(pady=(0, 10))
+        title_sub.grid(row=1, column=0, pady=(5, 10))
         self.theme_manager.register_widget(title_sub, 'bg_main', 'fg_main')
 
-        # Tableau
+        # === Tableau
         self.table_frame = tk.Frame(self)
-        self.table_frame.pack(fill="both", expand=True, padx=20, pady=10)
+        self.table_frame.grid(row=2, column=0, sticky="nsew", padx=20, pady=10)
+        self.table_frame.grid_rowconfigure(0, weight=1)
+        self.table_frame.grid_columnconfigure(0, weight=1)
         self.theme_manager.register_widget(self.table_frame, 'bg_main')
 
         self.columns = ("Utilisateur", "Date de Connexion", "Date de Déconnexion", "Autorisation")
@@ -68,14 +80,14 @@ class HistoriqueUsers(tk.Frame):
         vsb = ttk.Scrollbar(self.table_frame, orient="vertical", command=self.tree.yview)
         self.tree.configure(yscrollcommand=vsb.set)
 
-        self.tree.pack(side="left", fill="both", expand=True)
-        vsb.pack(side="right", fill="y")
+        self.tree.grid(row=0, column=0, sticky="nsew")
+        vsb.grid(row=0, column=1, sticky="ns")
 
         self.tree.tag_configure('refuse', foreground="red")
         self.tree.bind("<Configure>", self.adjust_column_widths)
         self.tree.bind("<Double-1>", self.supprimer_ligne_selectionnee)
 
-    
+
     def adjust_column_widths(self, event):
         total_width = event.width
         col_count = len(self.columns)

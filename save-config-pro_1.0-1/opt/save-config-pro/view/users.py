@@ -95,54 +95,67 @@ class UsersManager(tk.Frame):
         os.execl(python, python, *sys.argv)
 
     def create_widgets(self):
-        # Titre principal
+        """Widgets avec layout responsive (grid) pour la gestion des comptes"""
+
+        # Configuration principale en 3 lignes
+        self.grid_rowconfigure(0, weight=0)  # Titre + sous-titre
+        self.grid_rowconfigure(1, weight=1)  # Tableau extensible
+        self.grid_rowconfigure(2, weight=0)  # Barre de statut
+        self.grid_columnconfigure(0, weight=1)
+
+        # === Haut : titres
+        top_frame = tk.Frame(self)
+        top_frame.grid(row=0, column=0, sticky="ew", pady=(20, 0))
+        top_frame.grid_columnconfigure(0, weight=1)
+        self.theme_manager.register_widget(top_frame, 'bg_main')
+
+        center_frame = tk.Frame(top_frame)
+        center_frame.grid(row=0, column=0)
+        self.theme_manager.register_widget(center_frame, 'bg_main')
+
         title = tk.Label(
-            self,
+            center_frame,
             text="\U0001F4BB Système de Gestion des Configurations Réseaux Informatiques",
             font=("Arial", 16, "bold")
         )
-        title.pack(pady=20)
+        title.pack()
         self.theme_manager.register_widget(title, 'bg_main', 'fg_main')
 
-        # Sous-titre
         title_sub = tk.Label(
-            self,
+            center_frame,
             text="Gestion des comptes",
             font=("Arial", 16, "bold")
         )
-        title_sub.pack(pady=10)
+        title_sub.pack(pady=5)
         self.theme_manager.register_widget(title_sub, 'bg_main', 'fg_main')
 
-        # Frame du tableau (responsive)
+        # === Tableau (Treeview + scrollbar)
         self.table_frame = tk.Frame(self)
-        self.table_frame.pack(fill="both", expand=True, padx=20, pady=10)
+        self.table_frame.grid(row=1, column=0, sticky="nsew", padx=20, pady=10)
+        self.table_frame.grid_rowconfigure(0, weight=1)
+        self.table_frame.grid_columnconfigure(0, weight=1)
         self.theme_manager.register_widget(self.table_frame, 'bg_main')
 
-        # Treeview
         self.columns = ("Utilisateurs", "Compte", "Rôle", "Statut")
         self.tree = ttk.Treeview(self.table_frame, columns=self.columns, show="headings")
         for col in self.columns:
             self.tree.heading(col, text=col)
             self.tree.column(col, anchor="center", stretch=True)
 
-        # Scrollbar verticale
         vsb = ttk.Scrollbar(self.table_frame, orient="vertical", command=self.tree.yview)
         self.tree.configure(yscrollcommand=vsb.set)
 
-        # Placement
-        self.tree.pack(side="left", fill="both", expand=True)
-        vsb.pack(side="right", fill="y")
+        self.tree.grid(row=0, column=0, sticky="nsew")
+        vsb.grid(row=0, column=1, sticky="ns")
 
-        # Redimensionnement des colonnes auto
         self.tree.bind("<Configure>", self.adjust_column_widths)
         self.tree.bind("<Double-1>", self.on_user_select)
 
-        # Barre de statut
+        # === Barre de statut (centrée)
         status_bar = tk.Frame(self)
-        status_bar.pack(fill="x", pady=10)
+        status_bar.grid(row=2, column=0, sticky="ew", pady=10)
         self.theme_manager.register_widget(status_bar, 'bg_main')
 
-        # Compteur utilisateurs
         self.user_count_var = tk.StringVar()
         self.update_user_count()
 
@@ -151,9 +164,10 @@ class UsersManager(tk.Frame):
             textvariable=self.user_count_var,
             font=("Arial", 10)
         )
-        count_label.pack(fill='x', expand=True)
+        count_label.pack(anchor="center", fill="x")
         count_label.config(anchor='center')
         self.theme_manager.register_widget(count_label, 'bg_main', 'fg_main')
+
 
     def adjust_column_widths(self, event):
         total_width = event.width

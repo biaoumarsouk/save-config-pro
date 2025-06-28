@@ -25,77 +25,42 @@ class SousReseauxEnregistres(tk.Frame):
         self.insert_data()
 
     def create_widgets(self):
-        """Crée les widgets principaux"""
+        """Crée les widgets principaux avec layout responsive basé sur grid()"""
 
-        # Titre principal
+        # Configuration de la grille principale
+        self.grid_rowconfigure(0, weight=0)  # Titre + mode
+        self.grid_rowconfigure(1, weight=1)  # Tableau (extensible)
+        self.grid_rowconfigure(2, weight=0)  # Statut
+        self.grid_columnconfigure(0, weight=1)
+
+        # === Haut (titre, mode, bouton export)
+        top_frame = tk.Frame(self)
+        top_frame.grid(row=0, column=0, sticky="ew", padx=20, pady=(10, 0))
+        top_frame.grid_columnconfigure(0, weight=1)
+        self.theme_manager.register_widget(top_frame, 'bg_main')
+
+        center_frame = tk.Frame(top_frame)
+        center_frame.grid(row=0, column=0)
+        self.theme_manager.register_widget(center_frame, 'bg_main')
+
         title = tk.Label(
-            self,
+            center_frame,
             text="\U0001F4BB Système de Gestion des Configurations Réseaux Informatiques",
             font=("Arial", 16, "bold")
         )
-        title.pack(pady=20)
+        title.pack()
         self.theme_manager.register_widget(title, 'bg_main', 'fg_main')
 
-        # Label du mode
         self.mode_label = tk.Label(
-            self, 
-            text="Tous les réseaux enregistrés", 
+            center_frame,
+            text="Tous les réseaux enregistrés",
             font=("Arial", 14, "bold")
         )
-        self.mode_label.pack(pady=10)
+        self.mode_label.pack(pady=5)
         self.theme_manager.register_widget(self.mode_label, 'bg_main', 'fg_main')
 
-        # Frame du tableau (doit s'étendre avec la fenêtre)
-        self.table_frame = tk.Frame(self)
-        self.table_frame.pack(fill="both", expand=True, padx=20, pady=10)
-        self.theme_manager.register_widget(self.table_frame, 'bg_main')
-
-        # Treeview
-        self.columns = ("Réseaux", "Interfaces", "Addresse IP", "Scan")
-        self.tree = ttk.Treeview(self.table_frame, columns=self.columns, show="headings")
-        for col in self.columns:
-            self.tree.heading(col, text=col)
-            self.tree.column(col, anchor="center", stretch=True)
-
-        # Scrollbar
-        self.scrollbar = ttk.Scrollbar(self.table_frame, orient="vertical", command=self.tree.yview)
-        self.tree.configure(yscrollcommand=self.scrollbar.set)
-
-        # Placement
-        self.tree.pack(side="left", fill="both", expand=True)
-        self.scrollbar.pack(side="right", fill="y")
-        self.tree.bind("<Double-1>", self.on_select)
-        self.tree.bind("<Configure>", self.adjust_column_widths)
-
-        # Frame de statut
-        self.status_frame = tk.Frame(self)
-        self.status_frame.pack(pady=20)
-        self.theme_manager.register_widget(self.status_frame, 'bg_main')
-
-        # Compteur d'appareils
-        self.device_count_var = tk.StringVar()
-        self.device_count_var.set("Appareils détectés : 0")
-        
-        count_label = tk.Label(
-            self.status_frame,
-            textvariable=self.device_count_var,
-            font=("Arial", 14, "bold")
-        )
-        count_label.grid(row=0, column=0, padx=20)
-        self.theme_manager.register_widget(count_label, 'bg_main', 'fg_main')
-
-        # Statut système
-        status_label = tk.Label(
-            self.status_frame,
-            text="État du système : OK",
-            font=("Arial", 14, "bold")
-        )
-        status_label.grid(row=0, column=1, padx=20)
-        self.theme_manager.register_widget(status_label, 'bg_main', 'fg_success')
-
-        # Bouton export
         export_button = tk.Button(
-            self,
+            top_frame,
             text="🖨️",
             background=self.theme_manager.bg_main,
             foreground=self.theme_manager.fg_main,
@@ -105,8 +70,57 @@ class SousReseauxEnregistres(tk.Frame):
             cursor="hand2",
             command=self.export_to_json
         )
-        export_button.place(relx=1.0, rely=0.0, anchor="ne", x=-20, y=10)
+        export_button.grid(row=0, column=1, sticky="ne", padx=10)
         self.theme_manager.register_widget(export_button, 'bg_main', 'fg_main', 'bg_hover')
+
+        # === Tableau Treeview (zone extensible)
+        self.table_frame = tk.Frame(self)
+        self.table_frame.grid(row=1, column=0, sticky="nsew", padx=20, pady=10)
+        self.table_frame.grid_rowconfigure(0, weight=1)
+        self.table_frame.grid_columnconfigure(0, weight=1)
+        self.theme_manager.register_widget(self.table_frame, 'bg_main')
+
+        self.columns = ("Réseaux", "Interfaces", "Addresse IP", "Scan")
+        self.tree = ttk.Treeview(self.table_frame, columns=self.columns, show="headings")
+        for col in self.columns:
+            self.tree.heading(col, text=col)
+            self.tree.column(col, anchor="center", stretch=True)
+
+        self.scrollbar = ttk.Scrollbar(self.table_frame, orient="vertical", command=self.tree.yview)
+        self.tree.configure(yscrollcommand=self.scrollbar.set)
+
+        self.tree.grid(row=0, column=0, sticky="nsew")
+        self.scrollbar.grid(row=0, column=1, sticky="ns")
+        self.tree.bind("<Double-1>", self.on_select)
+        self.tree.bind("<Configure>", self.adjust_column_widths)
+
+        # === Statut (bas centré)
+        self.status_frame = tk.Frame(self)
+        self.status_frame.grid(row=2, column=0, pady=10, sticky="ew")
+        self.theme_manager.register_widget(self.status_frame, 'bg_main')
+
+        inner_status = tk.Frame(self.status_frame)
+        inner_status.pack(anchor="center")  # Centré horizontalement
+        self.theme_manager.register_widget(inner_status, 'bg_main')
+
+        self.device_count_var = tk.StringVar(value="Appareils détectés : 0")
+
+        count_label = tk.Label(
+            inner_status,
+            textvariable=self.device_count_var,
+            font=("Arial", 14, "bold")
+        )
+        count_label.pack(side="left", padx=20)
+        self.theme_manager.register_widget(count_label, 'bg_main', 'fg_main')
+
+        status_label = tk.Label(
+            inner_status,
+            text="État du système : OK",
+            font=("Arial", 14, "bold")
+        )
+        status_label.pack(side="left", padx=20)
+        self.theme_manager.register_widget(status_label, 'bg_main', 'fg_success')
+
 
     def adjust_column_widths(self, event):
         total_width = event.width

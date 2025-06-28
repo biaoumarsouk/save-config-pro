@@ -146,79 +146,86 @@ class NetworkScanner(tk.Frame):
             export_data=self.export_data,
             theme_manager=self.theme_manager
         )
-
     def create_widgets(self):
-        """Crée les widgets principaux"""
+        """Widgets principaux avec grid pour un layout responsive verticalement"""
 
-        # Titre principal
+        # Configurer les lignes/colonnes du frame principal
+        self.grid_rowconfigure(0, weight=0)  # Top (titre + mode) fixe
+        self.grid_rowconfigure(1, weight=1)  # Milieu (Treeview) extensible
+        self.grid_rowconfigure(2, weight=0)  # Bas (status) fixe
+        self.grid_columnconfigure(0, weight=1)
+
+        # === Top (titre + mode)
+        top_frame = tk.Frame(self)
+        top_frame.grid(row=0, column=0, sticky="ew", pady=10)
+        self.theme_manager.register_widget(top_frame, 'bg_main')
+
         title = tk.Label(
-            self,
+            top_frame,
             text="\U0001F4BB Système de Gestion des Configurations Réseaux Informatiques",
             font=("Arial", 16, "bold")
         )
-        title.pack(pady=20)
+        title.pack()
         self.theme_manager.register_widget(title, 'bg_main', 'fg_main')
 
-        # Label du mode
         self.mode_label = tk.Label(
-            self, 
-            text="Tous les équipements", 
+            top_frame,
+            text="Tous les équipements",
             font=("Arial", 14, "bold")
         )
-        self.mode_label.pack(pady=10)
+        self.mode_label.pack()
         self.theme_manager.register_widget(self.mode_label, 'bg_main', 'fg_main')
 
-        # Frame du tableau (doit être expansible)
+        # === Middle (Treeview) : extensible verticalement
         self.table_frame = tk.Frame(self)
-        self.table_frame.pack(fill="both", expand=True, padx=20, pady=10)
+        self.table_frame.grid(row=1, column=0, sticky="nsew", padx=20, pady=10)
+        self.table_frame.grid_rowconfigure(0, weight=1)
+        self.table_frame.grid_columnconfigure(0, weight=1)
         self.theme_manager.register_widget(self.table_frame, 'bg_main')
 
-        # Treeview
         self.columns = ("MAC", "Adresse IP", "État", "Enregistrer")
         self.tree = ttk.Treeview(self.table_frame, columns=self.columns, show="headings")
         for col in self.columns:
             self.tree.heading(col, text=col)
-            self.tree.column(col, anchor="center", stretch=True)  # stretch=True pour qu'elles s'étendent
+            self.tree.column(col, anchor="center", stretch=True)
 
-        # Scrollbar
         self.scrollbar = ttk.Scrollbar(self.table_frame, orient="vertical", command=self.tree.yview)
         self.tree.configure(yscrollcommand=self.scrollbar.set)
 
-        # Placement responsive
-        self.tree.pack(side="left", fill="both", expand=True)
-        self.scrollbar.pack(side="right", fill="y")
+        self.tree.grid(row=0, column=0, sticky="nsew")
+        self.scrollbar.grid(row=0, column=1, sticky="ns")
 
-        # Redimensionnement auto des colonnes
         self.tree.bind("<Configure>", self.adjust_column_widths)
-
-        # Double-clic
         self.tree.bind("<Double-1>", self.on_select)
 
-        # Frame de statut
+        # === Bottom (status) — contenu centré horizontalement
         self.status_frame = tk.Frame(self)
-        self.status_frame.pack(pady=20)
+        self.status_frame.grid(row=2, column=0, sticky="ew", pady=10)
         self.theme_manager.register_widget(self.status_frame, 'bg_main')
 
-        # Compteur d'appareils
-        self.device_count_var = tk.StringVar()
-        self.device_count_var.set("Appareils détectés : 0")
-        
+        inner_status = tk.Frame(self.status_frame)
+        inner_status.pack(anchor="center")  # Centre horizontalement
+        self.theme_manager.register_widget(inner_status, 'bg_main')
+
+        self.device_count_var = tk.StringVar(value="Appareils détectés : 0")
+
         count_label = tk.Label(
-            self.status_frame,
+            inner_status,
             textvariable=self.device_count_var,
             font=("Arial", 14, "bold")
         )
-        count_label.grid(row=0, column=0, padx=20)
+        count_label.pack(side="left", padx=20)
         self.theme_manager.register_widget(count_label, 'bg_main', 'fg_main')
 
-        # Statut système
         status_label = tk.Label(
-            self.status_frame,
+            inner_status,
             text="État du système : OK",
             font=("Arial", 14, "bold")
         )
-        status_label.grid(row=0, column=1, padx=20)
+        status_label.pack(side="left", padx=20)
         self.theme_manager.register_widget(status_label, 'bg_main', 'fg_success')
+
+
 
     def adjust_column_widths(self, event):
         total_width = event.width
@@ -227,7 +234,6 @@ class NetworkScanner(tk.Frame):
             for col in self.columns:
                 self.tree.column(col, width=total_width // col_count)
 
-    # ... (le reste de vos méthodes existantes reste inchangé)
     def load_existing_data(self, source):
         filename = {
             "mikrotik": "mikrotik_save.json",

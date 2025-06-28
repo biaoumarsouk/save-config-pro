@@ -122,3 +122,22 @@ class BarreHaut(tk.Frame):
         cercle = Image.new("RGBA", (40, 40))
         cercle.paste(img, (0, 0), img)
         return ImageTk.PhotoImage(cercle)
+    
+
+class Footer(tk.Frame):
+    def __init__(self, parent, theme_manager):
+        super().__init__(parent, height=30)
+        self.theme_manager = theme_manager
+        self.theme_manager.register_widget(self, 'bg_secondary')
+        self.pack(fill="x", side="bottom")
+
+        label = tk.Label(
+            self,
+            text="Save Config Pro v1.0.1 — Vérifiez toujours votre terminal pour les tâches exécutées.",
+            font=("Helvetica", 9, "italic"),
+            bg=self.theme_manager.bg_secondary,
+            fg=self.theme_manager.fg_main
+        )
+        label.pack(pady=5)
+        self.theme_manager.register_widget(label, 'bg_secondary', 'fg_main')
+

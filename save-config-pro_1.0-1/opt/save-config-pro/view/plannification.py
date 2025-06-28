@@ -439,7 +439,7 @@ class BackupScheduler(tk.Frame):
         self.theme_manager.register_widget(self.planning_label, 'bg_main', 'fg_main')
         
         # Liaison des événements
-        self.planning_frame.bind("<Button-1>", lambda event: self.creer_sauvegarde())
+        container.bind("<Button-1>", lambda event: self.creer_sauvegarde())
         self.planning_label.bind("<Button-1>", lambda event: self.creer_sauvegarde())
 
     def _create_form_frame(self):
