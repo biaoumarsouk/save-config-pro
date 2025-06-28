@@ -22,96 +22,110 @@ class Dashboard(tk.Frame):
         # Charger les réseaux enregistrés
         self.saved_networks = self.load_saved_networks()
 
-        # Conteneur principal avec grid
+        # Configuration du grid principal
+        self.grid_rowconfigure(0, weight=1)  # Contenu principal
+        self.grid_rowconfigure(1, weight=0)  # Statistiques (hauteur fixe)
+        self.grid_columnconfigure(0, weight=1)
+
+        # Conteneur principal
         self.main_container = tk.Frame(self)
-        self.main_container.pack(fill="both", expand=True)
+        self.main_container.grid(row=0, column=0, sticky="nsew")
         self.theme_manager.register_widget(self.main_container, 'bg_main')
 
-        # Configuration des lignes et colonnes
-        self.main_container.grid_rowconfigure(0, weight=1)  # Ligne pour le haut (graphique + contenu droit)
-        self.main_container.grid_rowconfigure(1, weight=0)  # Ligne pour les stats du bas (fixe)
-        self.main_container.grid_columnconfigure(0, weight=1)  # Colonne graphique
-        self.main_container.grid_columnconfigure(1, weight=3)  # Colonne contenu droit
+        # Configuration des colonnes (graphique à gauche, contenu à droite)
+        self.main_container.grid_columnconfigure(0, weight=1)  # Graphique
+        self.main_container.grid_columnconfigure(1, weight=2)  # Contenu
+        self.main_container.grid_rowconfigure(0, weight=1)
 
-        # Zone du graphique (en haut à gauche)
+        # Zone du graphique (colonne de gauche)
         self.chart_frame = tk.Frame(self.main_container)
         self.chart_frame.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
-        self.after(0, self.create_charts)
         self.theme_manager.register_widget(self.chart_frame, 'bg_main')
-        self.theme_manager.register_callback(self.update_chart_colors)
+        
+        # Configuration du grid pour chart_frame
+        self.chart_frame.grid_rowconfigure(0, weight=1)  # Graphique
+        self.chart_frame.grid_rowconfigure(1, weight=0)  # Horloge (hauteur fixe)
+        self.chart_frame.grid_columnconfigure(0, weight=1)
 
-        # Ajout de l'heure système
+        # Frame pour le canvas Matplotlib
+        self.chart_canvas_frame = tk.Frame(self.chart_frame)
+        self.chart_canvas_frame.grid(row=0, column=0, sticky="nsew")
+        self.theme_manager.register_widget(self.chart_canvas_frame, 'bg_main')
+
+        # Horloge centrée sous le graphique
         self.clock_frame = tk.Frame(self.chart_frame)
-        self.clock_frame.pack(side="bottom", fill="x", pady=(10, 0))
+        self.clock_frame.grid(row=1, column=0, sticky="nsew", pady=(10, 0))
         self.theme_manager.register_widget(self.clock_frame, 'bg_main')
 
+        # Conteneur interne pour centrer les labels
+        self.clock_inner_frame = tk.Frame(self.clock_frame)
+        self.clock_inner_frame.pack(expand=True, anchor="center")
+        self.theme_manager.register_widget(self.clock_inner_frame, 'bg_main')
 
-        self.clock_label = tk.Label(self.clock_frame, 
+        self.clock_label = tk.Label(self.clock_inner_frame, 
                                   text="Prochaine sauvegarde:",
                                   font=("Arial", 10, "bold"))
         self.clock_label.pack()
         self.theme_manager.register_widget(self.clock_label, 'bg_main', 'fg_main')
 
-        self.clock_value = tk.Label(self.clock_frame, 
+        self.clock_value = tk.Label(self.clock_inner_frame, 
                                   text="", 
                                   font=("Arial", 14))
         self.clock_value.pack()
         self.theme_manager.register_widget(self.clock_value, 'bg_main', 'fg_main')
 
-        # Mettre à jour l'heure système
+        # Créer le graphique
+        self.after(100, self.create_charts)
         self.update_clock()
 
-        # Conteneur pour la partie droite (tableaux et services)
+        # Conteneur droit (tableaux et services)
         self.right_container = tk.Frame(self.main_container)
         self.right_container.grid(row=0, column=1, sticky="nsew", padx=10, pady=10)
         self.theme_manager.register_widget(self.right_container, 'bg_main')
 
-        # Conteneur pour les statistiques en bas
-        self.bottom_stats_frame = tk.Frame(self.main_container)
-        self.bottom_stats_frame.grid(row=1, column=0, columnspan=2, sticky="ew", pady=10)
-        self.theme_manager.register_widget(self.bottom_stats_frame, 'bg_main')
+        # Configuration du grid pour right_container
+        self.right_container.grid_rowconfigure(0, weight=3)  # Tableau équipements
+        self.right_container.grid_rowconfigure(1, weight=0)  # Services
+        self.right_container.grid_rowconfigure(2, weight=2)  # Tableau FTP
+        self.right_container.grid_columnconfigure(0, weight=1)
 
-        # Rendre les colonnes proportionnelles
-        for i in range(3):
-            self.bottom_stats_frame.grid_columnconfigure(i, weight=1)
-
-        # Frame du tableau principal dans right_container
+        # Tableau principal des équipements
         self.table_frame = tk.Frame(self.right_container)
-        self.table_frame.pack(fill="both", expand=True, pady=10)
+        self.table_frame.grid(row=0, column=0, sticky="nsew", pady=(0, 10))
         self.theme_manager.register_widget(self.table_frame, 'bg_main')
 
-        # Frame intérieur pour Treeview + Scrollbar
-        inner_frame = tk.Frame(self.table_frame)
-        inner_frame.pack(fill="both", expand=True)
+        self.table_frame.grid_rowconfigure(0, weight=1)
+        self.table_frame.grid_columnconfigure(0, weight=1)
 
-        # Treeview
+        # Treeview avec scrollbar
         self.columns = ("Equipements", "Mac", "Type", "Etat")
-        self.tree = ttk.Treeview(inner_frame, columns=self.columns, show="headings", height=7)
+        self.tree = ttk.Treeview(self.table_frame, columns=self.columns, show="headings", height=7)
         for col in self.columns:
             self.tree.heading(col, text=col)
             self.tree.column(col, anchor="center", width=230)
 
-        # Scrollbar
-        self.scrollbar = ttk.Scrollbar(inner_frame, orient="vertical", command=self.tree.yview)
+        self.scrollbar = ttk.Scrollbar(self.table_frame, orient="vertical", command=self.tree.yview)
         self.tree.configure(yscrollcommand=self.scrollbar.set)
 
-        # Placement
-        self.tree.pack(side="left", fill="both", expand=True)
-        self.scrollbar.pack(side="right", fill="y")
-
+        self.tree.grid(row=0, column=0, sticky="nsew")
+        self.scrollbar.grid(row=0, column=1, sticky="ns")
         self.tree.bind("<Double-1>", self.on_select)
         self.remplir_treeview()
 
-        # Frame pour les états des services
+        # Frame des services (FTP, Ansible, Stockage)
         self.services_frame = tk.Frame(self.right_container)
-        self.services_frame.pack(fill="x", pady=10)
+        self.services_frame.grid(row=1, column=0, sticky="ew", pady=10)
         self.theme_manager.register_widget(self.services_frame, 'bg_main')
+
+        # Configuration 3 colonnes égales
+        for i in range(3):
+            self.services_frame.grid_columnconfigure(i, weight=1)
 
         # Serveur FTP
         self.ftp_frame = tk.LabelFrame(self.services_frame, text="État du serveur FTP",
                                      font=("Arial", 10, "bold"),
                                      bd=2, relief="groove")
-        self.ftp_frame.pack(side="left", pady=10, padx=(0, 4), fill="both", expand=True)
+        self.ftp_frame.grid(row=0, column=0, sticky="nsew", padx=5)
         self.theme_manager.register_widget(self.ftp_frame, 'bg_main', 'fg_main')
 
         self.ftp_status = tk.Label(self.ftp_frame, text="❌", font=("Arial", 24))
@@ -122,22 +136,11 @@ class Dashboard(tk.Frame):
         self.ftp_label.pack()
         self.theme_manager.register_widget(self.ftp_label, 'bg_main', 'fg_main')
 
-        # Stockage total
-        self.stock_frame = tk.LabelFrame(self.services_frame, text="Stockage total",
-                                       font=("Arial", 10, "bold"),
-                                       bd=2, relief="groove")
-        self.stock_frame.pack(side="right", pady=10, padx=(4, 0), fill="both", expand=True)
-        self.theme_manager.register_widget(self.stock_frame, 'bg_main', 'fg_main')
-
-        self.stock_valeur = tk.Label(self.stock_frame, text="", font=("Arial", 24))
-        self.stock_valeur.pack(pady=10)
-        self.theme_manager.register_widget(self.stock_valeur, 'bg_main', 'fg_main')
-
         # Ansible
         self.ansible_frame = tk.LabelFrame(self.services_frame, text="État d'Ansible",
                                         font=("Arial", 10, "bold"),
                                         bd=2, relief="groove")
-        self.ansible_frame.pack(side="right", pady=10, padx=(2, 2), fill="both", expand=True)
+        self.ansible_frame.grid(row=0, column=1, sticky="nsew", padx=5)
         self.theme_manager.register_widget(self.ansible_frame, 'bg_main', 'fg_main')
 
         self.ansible_status = tk.Label(self.ansible_frame, text="❌", font=("Arial", 24))
@@ -148,44 +151,67 @@ class Dashboard(tk.Frame):
         self.ansible_label.pack()
         self.theme_manager.register_widget(self.ansible_label, 'bg_main', 'fg_main')
 
-        # Table FTP
-        self.ftp_table_frame = tk.Frame(self.right_container)
-        self.ftp_table_frame.pack(fill="both", expand=False, pady=(10, 0))
-        self.theme_manager.register_widget(self.ftp_table_frame, 'bg_main', 'fg_main')
+        # Stockage total
+        self.stock_frame = tk.LabelFrame(self.services_frame, text="Stockage total",
+                                       font=("Arial", 10, "bold"),
+                                       bd=2, relief="groove")
+        self.stock_frame.grid(row=0, column=2, sticky="nsew", padx=5)
+        self.theme_manager.register_widget(self.stock_frame, 'bg_main', 'fg_main')
 
-        scrollbar = ttk.Scrollbar(self.ftp_table_frame, orient="vertical")
-        scrollbar.pack(side="right", fill="y")
+        self.stock_valeur = tk.Label(self.stock_frame, text="", font=("Arial", 24))
+        self.stock_valeur.pack(pady=10)
+        self.theme_manager.register_widget(self.stock_valeur, 'bg_main', 'fg_main')
+
+        # Tableau FTP
+        self.ftp_table_frame = tk.Frame(self.right_container)
+        self.ftp_table_frame.grid(row=2, column=0, sticky="nsew", pady=(10, 0))
+        self.theme_manager.register_widget(self.ftp_table_frame, 'bg_main')
+
+        self.ftp_table_frame.grid_rowconfigure(0, weight=1)
+        self.ftp_table_frame.grid_columnconfigure(0, weight=1)
 
         self.ftp_tree = ttk.Treeview(
             self.ftp_table_frame,
             columns=("Nom", "Taille", "Heure"),
             show="headings",
-            height=5,
-            yscrollcommand=scrollbar.set
+            height=5
         )
-        scrollbar.config(command=self.ftp_tree.yview)
+        
+        scrollbar = ttk.Scrollbar(self.ftp_table_frame, orient="vertical", command=self.ftp_tree.yview)
+        self.ftp_tree.configure(yscrollcommand=scrollbar.set)
 
         for col in ("Nom", "Taille", "Heure"):
             self.ftp_tree.heading(col, text=col)
             self.ftp_tree.column(col, anchor="center")
 
-        self.ftp_tree.pack(fill="both", expand=True, side="left")
+        self.ftp_tree.grid(row=0, column=0, sticky="nsew")
+        scrollbar.grid(row=0, column=1, sticky="ns")
+        
         self.remplir_fichiers_ftp()
         self.check_services_status()
 
-        # Sections pour les statistiques
+        # Statistiques en bas
+        self.bottom_stats_frame = tk.Frame(self)
+        self.bottom_stats_frame.grid(row=1, column=0, sticky="ew", pady=10)
+        self.theme_manager.register_widget(self.bottom_stats_frame, 'bg_main')
+
+        # Configuration 3 colonnes égales
+        for i in range(3):
+            self.bottom_stats_frame.grid_columnconfigure(i, weight=1)
+
+        # Sections des statistiques
         self.sections = [
-            {"title": "Réseau disponible",      "count_func": self.count_reseau_disponible,     "callback": self.controller.scann},
-            {"title": "Réseau enregistrés",     "count_func": self.count_reseau_enregistres,    "callback": self.controller.show_sous_reseaux_enregistres},
-            {"title": "Fichiers sauvegardés",   "count_func": self.count_fichiers_sauvegardes,  "callback": self.controller.show_saverestauration},
-            {"title": "Appareils enrégistrés",  "count_func": self.count_appareils_enr,        "callback": self.controller.show_schedule},
-            {"title": "Appareil en sauvegarde", "count_func": self.count_appareil_en_sauv,     "callback": self.controller.show_saverestauration},
-            {"title": "Pannes enregistrées",    "count_func": self.count_pannes,               "callback": self.controller.show_saverestauration},
+            {"title": "Réseau disponible", "count_func": self.count_reseau_disponible, "callback": self.controller.scann},
+            {"title": "Réseau enregistrés", "count_func": self.count_reseau_enregistres, "callback": self.controller.show_sous_reseaux_enregistres},
+            {"title": "Fichiers sauvegardés", "count_func": self.count_fichiers_sauvegardes, "callback": self.controller.show_saverestauration},
+            {"title": "Appareils enrégistrés", "count_func": self.count_appareils_enr, "callback": self.controller.show_schedule},
+            {"title": "Appareil en sauvegarde", "count_func": self.count_appareil_en_sauv, "callback": self.controller.show_saverestauration},
+            {"title": "Pannes enregistrées", "count_func": self.count_pannes, "callback": self.controller.show_saverestauration},
         ]
 
-    # Création des statistiques
+        # Création des statistiques (2 lignes, 3 colonnes)
         for i, s in enumerate(self.sections):
-            row, col = divmod(i, 3)  # Deux lignes, trois colonnes
+            row, col = divmod(i, 3)
             frame = tk.LabelFrame(self.bottom_stats_frame, text=s["title"],
                                 font=("Arial", 12, "bold"),
                                 bd=2, relief="groove", labelanchor="n")
@@ -199,44 +225,47 @@ class Dashboard(tk.Frame):
             self.theme_manager.register_widget(lbl, 'bg_main', 'fg_main')
 
             frame.bind("<Button-1>", lambda e, cb=s["callback"]: cb())
-            lbl.bind("<Button-1>",   lambda e, cb=s["callback"]: cb())
-            
+            lbl.bind("<Button-1>", lambda e, cb=s["callback"]: cb())
+
     def create_charts(self):
-        """Crée les graphiques dans le coin supérieur gauche"""
-        # Compter les équipements par type
-        counts = self.count_equipments_by_type()
-        
-        # Filtrer les types avec au moins un équipement
-        filtered_counts = {k: v for k, v in counts.items() if v > 0}
-        
-        # Figure matplotlib pour le camembert
-        fig, ax = plt.subplots(figsize=(5, 4), dpi=100)
-        fig.patch.set_facecolor(self.theme_manager.bg_main)
-        ax.set_facecolor(self.theme_manager.bg_main)
-
-        if not filtered_counts:
-            # Cas où aucun équipement n'est trouvé
-            ax.text(0.5, 0.5, "Aucun équipement enregistré", 
-                ha='center', va='center', 
-                color=self.theme_manager.fg_main,
-                fontsize=12)
-            ax.axis('off')  # Désactive les axes
-        else:
-            # Création du camembert normal
-            labels = list(filtered_counts.keys())
-            values = list(filtered_counts.values())
+        """Crée le graphique avec une taille agrandie"""
+        try:
+            counts = {k: v for k, v in self.count_equipments_by_type().items() if v > 0}
             
-            ax.pie(values, labels=labels, autopct='%1.1f%%', startangle=90,
-                textprops={'color': self.theme_manager.fg_main},
-                wedgeprops={'linewidth': 1, 'edgecolor': self.theme_manager.bg_main})
-            ax.set_title("Répartition des équipements enregistrés", 
-                        color=self.theme_manager.fg_main)
+            fig, ax = plt.subplots(figsize=(7, 5), dpi=100)
+            fig.patch.set_facecolor(self.theme_manager.bg_main)
+            ax.set_facecolor(self.theme_manager.bg_main)
 
-        # Ajout du camembert dans Tkinter
-        self.canvas = FigureCanvasTkAgg(fig, master=self.chart_frame)
-        self.canvas.draw()
-        self.canvas.get_tk_widget().pack(fill="both", expand=True)
+            if not counts:
+                ax.text(0.5, 0.5, "Aucun équipement enregistré", 
+                       ha='center', va='center', 
+                       color=self.theme_manager.fg_main,
+                       fontsize=12)
+                ax.axis('off')
+            else:
+                ax.pie(
+                    counts.values(), 
+                    labels=counts.keys(), 
+                    autopct='%1.1f%%', 
+                    startangle=90,
+                    textprops={'color': self.theme_manager.fg_main, 'fontsize': 10},
+                    wedgeprops={'linewidth': 1, 'edgecolor': self.theme_manager.bg_main}
+                )
+                ax.set_title("Répartition des équipements enrégistrées", 
+                           color=self.theme_manager.fg_main,
+                           fontsize=12)
 
+            plt.tight_layout()
+
+            if hasattr(self, 'canvas'):
+                self.canvas.get_tk_widget().destroy()
+
+            self.canvas = FigureCanvasTkAgg(fig, master=self.chart_canvas_frame)
+            self.canvas.draw()
+            self.canvas.get_tk_widget().grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
+
+        except Exception as e:
+            print(f"Erreur création graphique: {e}")
 
     def update_chart_colors(self):
         """Met à jour les couleurs du diagramme en fonction du thème actuel"""
