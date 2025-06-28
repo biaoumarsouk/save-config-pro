@@ -384,7 +384,7 @@ class NetworkConfigApp(tk.Tk):
 
     def init_scanner(self):
         self.clear_main_content()
-
+        self.update_networks_from_json()
         self.main_zone = tk.Frame(self.main_content)
         self.main_zone.pack(fill="both", expand=True)  # Utilisez pack ici pour simplifier
         
