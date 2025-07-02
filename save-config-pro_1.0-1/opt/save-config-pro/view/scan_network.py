@@ -9,6 +9,7 @@ from .composants.loading import run_with_loading
 from .composants.menu_filtre import ToggleMenu
 from itertools import chain
 import time
+import re
 
 files_dir = os.path.join(os.path.dirname(__file__), 'files')
 if not os.path.exists(files_dir):
@@ -274,6 +275,8 @@ class NetworkScanner(tk.Frame):
 
 
     def ask_credentials(self, equipment):
+    
+
         filename = {
             "mikrotik": "mikrotik_save.json",
             "cisco": "cisco_save.json", 
@@ -319,30 +322,20 @@ class NetworkScanner(tk.Frame):
         current_list = self.load_existing_data(self.current_mode)
         existing_eq = next((eq for eq in current_list if eq['mac'] == equipment['mac']), None)
 
-        # Détermination des types possibles en fonction du constructeur
-        system_label = tk.Label(cred_window, text="Système", **label_style)
-        system_label.pack(pady=2)
+        tk.Label(cred_window, text="Système", **label_style).pack(pady=2)
 
         if self.current_mode == "cisco":
             system_options = ["IOS", "ASA"]
-            state = "readonly"
         else:
-            # Charger les types existants pour les autres constructeurs (ex. depuis current_list)
-            system_options = sorted(set(eq.get("systeme", "default") for eq in current_list))
-            if not system_options:
-                system_options = ["default"]
-            state = "readonly"
+            system_options = sorted(set(eq.get("systeme", "default") for eq in current_list)) or ["default"]
 
         system_var = tk.StringVar()
-        system_combobox = ttk.Combobox(cred_window, textvariable=system_var, values=system_options, state=state)
+        system_combobox = ttk.Combobox(cred_window, textvariable=system_var, values=system_options, state="readonly")
         system_combobox.pack()
-        # Hack pour forcer l'application immédiate du style
         system_combobox.update_idletasks()
         system_combobox.event_generate('<Button-1>')
         cred_window.after(100, lambda: system_combobox.event_generate('<Escape>'))
 
-
-        # Appliquer un style similaire aux Entry
         style = ttk.Style()
         style.theme_use("clam")
         style.configure("TCombobox",
@@ -355,42 +348,101 @@ class NetworkScanner(tk.Frame):
                         darkcolor=self.theme_manager.bg_main,
                         relief="flat")
 
-        # Pré-remplir le type si l'équipement existe déjà
         if existing_eq:
             system_combobox.set(existing_eq.get("type", system_options[0]))
-        else:
-            system_combobox.set(system_options[0])
-
-
-        if existing_eq:
             entries[0].insert(0, existing_eq.get('name') or '')
             entries[1].insert(0, existing_eq.get('credentials', {}).get('username') or '')
             entries[2].insert(0, existing_eq.get('credentials', {}).get('password') or '')
             entries[3].insert(0, existing_eq.get('credentials', {}).get('enable_password') or '')
-
+        else:
+            system_combobox.set(system_options[0])
 
         def save_or_update():
             name, username, password, enable_password = [e.get() for e in entries]
             selected_type = system_var.get()
+
             if not name or not username or not password:
                 messagebox.showerror("Erreur", "Tous les champs obligatoires doivent être remplis.")
                 return
 
+            ip = equipment.get('ip')
+            mac = equipment.get('mac').replace(':', '-').upper()
+
+            try:
+                base_dir = os.path.join(os.path.dirname(__file__), 'files', f"backup_{self.current_mode.lower()}")
+                if os.path.exists(base_dir):
+                    for folder in os.listdir(base_dir):
+                        full_path = os.path.join(base_dir, folder)
+                        if os.path.isdir(full_path):
+                            inventory_path = os.path.join(full_path, "inventory.ini")
+                            if os.path.exists(inventory_path):
+                                # Supprimer la ligne contenant la MAC
+                                with open(inventory_path, 'r') as f:
+                                    lines = f.readlines()
+
+                                with open(inventory_path, 'w') as f:
+                                    for line in lines:
+                                        if not line.strip().startswith(mac):
+                                            f.write(line)
+
+                                # Supprimer les sections vides si besoin
+                                with open(inventory_path, 'r') as f:
+                                    content = f.read()
+
+                                cleaned = re.sub(r'\[\w+\]\n(?=\[|\Z)', '', content, flags=re.MULTILINE)
+                                with open(inventory_path, 'w') as f:
+                                    f.write(cleaned)
+
+                # Ajouter à l'inventory.ini de la machine actuelle
+                current_backup_dir = os.path.join(base_dir, ip.replace('.', '_'))
+                os.makedirs(current_backup_dir, exist_ok=True)
+                current_inventory = os.path.join(current_backup_dir, "inventory.ini")
+
+                line = (
+                    f"{mac} ansible_host={ip} ansible_user={username} ansible_ssh_pass={password} "
+                    f"ansible_network_os=cisco.ios.ios ansible_connection=network_cli "
+                    f"ansible_become=yes ansible_become_method=enable ansible_become_password={enable_password}\n"
+                )
+
+                section_header = f"[{selected_type}]"
+
+                # Ajouter proprement à la section
+                if os.path.exists(current_inventory):
+                    with open(current_inventory, 'r') as f:
+                        content = f.read()
+                else:
+                    content = ""
+
+                if section_header not in content:
+                    content += f"\n{section_header}\n"
+
+                # Éviter duplication
+                content_lines = content.splitlines()
+                content_lines = [l for l in content_lines if not l.strip().startswith(mac)]
+                idx = content_lines.index(section_header) + 1 if section_header in content_lines else len(content_lines)
+                content_lines.insert(idx, line.strip())
+
+                with open(current_inventory, 'w') as f:
+                    f.write('\n'.join(content_lines) + '\n')
+
+            except Exception as e:
+                messagebox.showerror("Erreur", f"Erreur lors de la mise à jour de l'inventaire :\n{str(e)}")
+                return
+
+            # Mise à jour JSON
             equipment['name'] = name
-            equipment['system'] = selected_type  # ➕ ajout du type
+            equipment['system'] = selected_type
             equipment['credentials'] = {
                 'username': username,
                 'password': password,
                 'enable_password': enable_password if enable_password else None
             }
             equipment['status'] = False
+            equipment['sauvegarde'] = False
             equipment['subnet'] = None
             equipment['ftp_server'] = None
 
-
-            current_list = self.load_existing_data(self.current_mode)
             existing_eq = next((eq for eq in current_list if eq['mac'] == equipment['mac']), None)
-
             if existing_eq:
                 for i, eq in enumerate(current_list):
                     if eq['mac'] == equipment['mac']:
@@ -408,55 +460,47 @@ class NetworkScanner(tk.Frame):
             cred_window.destroy()
             self.update_table(self.displayed_devices)
 
+
         def delete_equipment():
-            if messagebox.askyesno("Confirmation", "Voulez-vous vraiment supprimer cet équipement ?"):
-                # 1. Suppression du JSON
-                current_list = self.load_existing_data(self.current_mode)
-                updated_list = [eq for eq in current_list if eq['mac'] != equipment['mac']]
-                
-                with open(file_path, 'w') as f:
-                    json.dump(updated_list, f, indent=4)
+            if not messagebox.askyesno("Confirmation", "Voulez-vous vraiment supprimer cet équipement ?"):
+                return
 
-                # 2. Suppression dans inventory.ini
-                backup_folder = "backup_cisco" if self.current_mode == "cisco" else "backup_mikrotik"
-                inventory_path = os.path.join(os.path.dirname(__file__), 'files', backup_folder, 'inventory.ini')
-                
-                if os.path.exists(inventory_path):
-                    try:
-                        # Lire le fichier en conservant la casse
-                        config = configparser.ConfigParser()
-                        config.optionxform = str  # Important pour conserver la casse
-                        config.read(inventory_path)
-                        
-                        mac_to_find = equipment['mac'].replace(':', '-').upper()
-                        modified = False
-                        
-                        # Nouvelle méthode de recherche plus fiable
-                        for section in config.sections():
-                            for key in list(config[section].keys()):  # On utilise list() pour éviter les problèmes de modification pendant l'itération
-                                if key.split()[0] == mac_to_find:  # On compare seulement la partie MAC
-                                    config.remove_option(section, key)
-                                    modified = True
-                                    
-                                    # Supprimer section si vide
-                                    if not config.options(section):
-                                        config.remove_section(section)
-                                    break
-                            if modified:
-                                break
-                        
-                        # Sauvegarder seulement si modification
-                        if modified:
-                            with open(inventory_path, 'w') as configfile:
-                                config.write(configfile)
-                                
-                    except Exception as e:
-                        messagebox.showerror("Erreur", f"Erreur lors de la suppression dans inventory.ini:\n{str(e)}")
-                        return
+            mac = equipment['mac'].replace(':', '-').upper()
+            try:
+                base_dir = os.path.join(os.path.dirname(__file__), 'files', f"backup_{self.current_mode.lower()}")
+                if os.path.exists(base_dir):
+                    for folder in os.listdir(base_dir):
+                        full_path = os.path.join(base_dir, folder)
+                        if os.path.isdir(full_path):
+                            inventory_path = os.path.join(full_path, "inventory.ini")
+                            if os.path.exists(inventory_path):
+                                with open(inventory_path, 'r') as f:
+                                    lines = f.readlines()
 
-                cred_window.destroy()
-                messagebox.showinfo("Supprimé", f"Équipement supprimé de :\n{filename}")
-                self.update_table(self.displayed_devices)
+                                with open(inventory_path, 'w') as f:
+                                    for line in lines:
+                                        if not line.strip().startswith(mac):
+                                            f.write(line)
+
+                                # Nettoyage des sections vides
+                                with open(inventory_path, 'r') as f:
+                                    content = f.read()
+                                cleaned = re.sub(r'\[\w+\]\n(?=\[|\Z)', '', content, flags=re.MULTILINE)
+                                with open(inventory_path, 'w') as f:
+                                    f.write(cleaned)
+
+            except Exception as e:
+                messagebox.showerror("Erreur", f"Erreur lors de la suppression dans inventory.ini:\n{str(e)}")
+                return
+
+            current_list = self.load_existing_data(self.current_mode)
+            updated_list = [eq for eq in current_list if eq['mac'] != equipment['mac']]
+            with open(file_path, 'w') as f:
+                json.dump(updated_list, f, indent=4)
+
+            cred_window.destroy()
+            messagebox.showinfo("Supprimé", f"Équipement supprimé de :\n{filename}")
+            self.update_table(self.displayed_devices)
 
         button_frame = tk.Frame(cred_window, bg=self.theme_manager.bg_main)
         button_frame.pack(pady=40)
@@ -484,6 +528,8 @@ class NetworkScanner(tk.Frame):
                 bg="#AAAAAA", fg="black",
                 **button_style
             ).grid(row=1, column=0, pady=2)
+
+
 
     def show_all(self):
         """Affiche tous les appareils détectés"""

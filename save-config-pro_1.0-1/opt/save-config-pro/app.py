@@ -3,6 +3,7 @@ from tkinter import ttk
 from tkinter import messagebox
 from view.scan_network import NetworkScanner
 from view.saverestauration import SaveRestauration
+from view.historique_sauvegardes import HistoriqueSauvegarde
 from view.network_selection import SousReseaux
 from view.network_enregistres import SousReseauxEnregistres
 from view.plannification import BackupScheduler
@@ -18,6 +19,8 @@ from view.deconnexion import Deconnexion
 from view.fermer import Fermer
 from view.auth import LoginFrame
 from view.debut import AdminCreationFrame
+from view.settings import AideLogiciel
+from view.settings import FonctionnaliteSysteme
 from view.composants.loading import run_with_loading
 import time
 import os
@@ -177,7 +180,7 @@ class NetworkConfigApp(tk.Tk):
             ("🏠", "Tableau de bord", self.show_dashboard),
             ("🖧", "Réseaux", self.open_scan_choice_window),
             ("🔍", "Scanner", self.init_scanner),
-            ("📥", "Sauvegardes", self.show_saverestauration),
+            ("📥", "Sauvegardes", self.open_sauvegardes_choice_window),
             ("⏰", "Planification", self.show_schedule),
             ("⚙️", "Paramètres", self.show_settings),
             *([("☺", "Utilisateurs", self.open_users_choice_window)] if role == "admin" else []),
@@ -282,7 +285,7 @@ class NetworkConfigApp(tk.Tk):
             ("🏠", "Tableau de bord", self.show_dashboard),
             ("🖧", "Réseaux", self.open_scan_choice_window),
             ("🔍", "Scanner", self.init_scanner),
-            ("📥", "Sauvegardes", self.show_saverestauration),
+            ("📥", "Sauvegardes", self.open_sauvegardes_choice_window),
             ("⏰", "Planification", self.show_schedule),
             ("⚙️", "Paramètres", self.show_settings),
         ]
@@ -448,21 +451,22 @@ class NetworkConfigApp(tk.Tk):
 
         def task(update_progress):
             update_progress(30, "Préparation...")
-            return BackupScheduler(
-                parent=self.main_zone,  # Changé pour utiliser main_zone
+            backup_scheduler = BackupScheduler(
+                parent=self.main_zone,
                 theme_manager=self.theme_manager
             )
+            # Définir l'utilisateur actuel dans le manager
+            backup_scheduler.manager.set_current_user(self.nom_utilisateur)
+            return backup_scheduler
 
         def after_task(backup_scheduler):
-            # Configuration de la grille après création
             self.main_zone.grid_rowconfigure(0, weight=1)
             self.main_zone.grid_rowconfigure(1, weight=0)
             self.main_zone.grid_columnconfigure(0, weight=1)
             
-            backup_scheduler.grid(row=0, column=0, sticky="nsew")  # Changé pack() en grid()
+            backup_scheduler.grid(row=0, column=0, sticky="nsew")
             self.create_buttons()
 
-        # Création du conteneur principal avant l'écran de chargement
         self.main_zone = tk.Frame(self.main_content)
         self.main_zone.pack(fill="both", expand=True)
         self.theme_manager.register_widget(self.main_zone, 'bg_main')
@@ -473,9 +477,34 @@ class NetworkConfigApp(tk.Tk):
             callback=after_task,
             theme_manager=self.theme_manager
         )
-
     def show_settings(self):
-        print('Parametre')
+        ChoiceMenu(
+            parent=self,
+            theme_manager=self.theme_manager,
+            choices=[
+                ("Aides", self.show_help),
+                ("Fonctionnalités", self.show_fonctionnalites),
+            ]
+        )
+
+
+    def show_help(self):
+        self.clear_main_content()
+        self.sauvegarde_view = AideLogiciel(
+            parent=self.main_content, 
+            theme_manager=self.theme_manager
+        )
+        self.sauvegarde_view.pack(fill="both", expand=True) 
+
+    def show_fonctionnalites(self):
+        self.clear_main_content()
+        self.fonctionnalite_view = FonctionnaliteSysteme(
+            parent=self.main_content,
+            theme_manager=self.theme_manager
+        )
+        self.fonctionnalite_view.pack(fill="both", expand=True)
+
+
 
 
     # Dans votre classe principale
@@ -503,6 +532,30 @@ class NetworkConfigApp(tk.Tk):
 
         # Ajout des boutons standard
         self.create_buttons()
+
+
+    def show_historique_sauvegardes(self):
+        self.clear_main_content()
+
+        self.main_zone = tk.Frame(self.main_content)
+        self.main_zone.pack(fill="both", expand=True)  # Utilisation de pack comme dans init_scanner
+        
+        # Configuration de la grille à l'intérieur de main_zone
+        self.main_zone.grid_rowconfigure(0, weight=1)  # Contenu principal prend l'espace disponible
+        self.main_zone.grid_rowconfigure(1, weight=0)  # Boutons taille fixe
+        self.main_zone.grid_columnconfigure(0, weight=1)
+        
+        self.theme_manager.register_widget(self.main_zone, 'bg_main')
+
+        # Crée le frame SousReseaux
+        self.sous_reseaux_frame = HistoriqueSauvegarde(
+            parent=self.main_zone,  # Changé de main_content à main_zone
+            theme_manager=self.theme_manager
+        )
+        self.sous_reseaux_frame.grid(row=0, column=0, sticky="nsew")  # Utilisation de grid au lieu de pack
+
+        # Crée les boutons
+        self.create_buttons()
             
 
 
@@ -528,6 +581,8 @@ class NetworkConfigApp(tk.Tk):
 
         # Crée les boutons
         self.create_buttons()
+
+
     
 
 
@@ -572,6 +627,16 @@ class NetworkConfigApp(tk.Tk):
             choices=[
                 ("Compte utilisateurs", self.show_users),
                 ("Historiques des connexions", self.show_historique_user_frame),
+            ]
+        )
+
+    def open_sauvegardes_choice_window(self):
+        ChoiceMenu(
+            parent=self,
+            theme_manager=self.theme_manager,
+            choices=[
+                ("Mes sauvegardes", self.show_saverestauration),
+                ("Historiques des sauvegardes", self.show_historique_sauvegardes),
             ]
         )
         
@@ -623,6 +688,7 @@ class NetworkConfigApp(tk.Tk):
 
         # Création des boutons standard
         self.create_buttons()
+
     def deconnect(self):
         """Gère la déconnexion de l'utilisateur"""
         # Chemin vers le fichier users.json

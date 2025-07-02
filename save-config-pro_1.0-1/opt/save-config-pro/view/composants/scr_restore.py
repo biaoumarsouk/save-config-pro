@@ -111,7 +111,7 @@ host_key_checking = False
   vars:
     ftp_server: "{ftp_server_ip}"
     ftp_username: "ftpuser"
-    ftp_password: "Marsouk57"
+    ftp_password: "Ftpuser57"
     config_file: "{config_file}"
 
   tasks:

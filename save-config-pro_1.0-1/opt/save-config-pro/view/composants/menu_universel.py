@@ -184,7 +184,7 @@ class MenuUniversel(tk.Frame):
 
             def create_ftp_user():
                 username = "ftpuser"
-                password = "Marsouk57"
+                password = "Ftpuser57"
 
                 print(f"Création de l'utilisateur FTP : {username}")
                 try:
@@ -330,6 +330,7 @@ class MenuUniversel(tk.Frame):
             "Voulez-vous vraiment supprimer toutes les sauvegardes?\n"
             "Cette action est irréversible !"
         ):
+
             def run_delete():
                 try:
                     # Récupération de la liste des fichiers
@@ -350,6 +351,10 @@ class MenuUniversel(tk.Frame):
                     for fichier in fichiers:
                         subprocess.run(["sudo", "rm", fichier], check=True)
                     
+                    # Rafraîchir après suppression
+                    if hasattr(self.root, 'dashboard') and self.root.dashboard:
+                        self.root.after(100, lambda: self.root.dashboard.remplir_fichiers_ftp())
+                        self.root.after(100, lambda: self.root.dashboard.update_section(2))
                     messagebox.showinfo(
                         "Succès", 
                         f"{len(fichiers)} sauvegardes ont été supprimées avec succès."

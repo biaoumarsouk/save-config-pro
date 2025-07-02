@@ -7,6 +7,7 @@ import platform
 import psutil
 import struct
 import socket
+import paramiko
 
 def get_local_ip_in_subnet(subnet_cidr):
     subnet_ip, subnet_mask = subnet_cidr.split('/')
@@ -60,6 +61,26 @@ def is_reachable(ip):
         return result.returncode == 0
     except Exception:
         return False
+    
+def test_ssh_connection(ip, username, password, timeout=3):
+    try:
+        client = paramiko.SSHClient()
+        client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+
+        client.connect(
+            hostname=ip,
+            username=username,
+            password=password,
+            timeout=timeout,
+            allow_agent=False,
+            look_for_keys=False
+        )
+        client.close()
+        return True
+    except (paramiko.ssh_exception.AuthenticationException,
+            paramiko.ssh_exception.SSHException,
+            socket.error):
+        return False
 
 # Fonction pour récupérer la MAC correspondant à une IP via la table ARP locale
 def get_mac_from_arp(ip):
@@ -110,21 +131,27 @@ has_valid_equipments = False
 reachable_equipments = []
 for eq in equipments:
     ip = eq['ip']
+    username = eq['credentials']['username']
+    password = eq['credentials']['password']
     expected_mac = eq['mac'].lower()
     if is_reachable(ip):
         real_mac = get_mac_from_arp(ip)
         if real_mac is not None and real_mac == expected_mac:
-            eq['status'] = True
-            subnet_cidr = get_subnet_for_ip(ip)
-            if subnet_cidr:
-                eq['subnet'] = subnet_cidr
-                eq['ftp_server'] = subnet_ftp_servers[subnet_cidr]
-                reachable_equipments.append(eq)
-                has_valid_equipments = True
+            if test_ssh_connection(ip, username, password):
+                eq['status'] = True
+                eq['sauvegarde'] = True
+                subnet_cidr = get_subnet_for_ip(ip)
+                if subnet_cidr:
+                    eq['subnet'] = subnet_cidr
+                    eq['ftp_server'] = subnet_ftp_servers[subnet_cidr]
+                    reachable_equipments.append(eq)
+                    has_valid_equipments = True
+            else:
+                eq['sauvegarde'] = False
         else:
-            eq['status'] = False
+            eq['sauvegarde'] = False
     else:
-        eq['status'] = False
+        eq['sauvegarde'] = False
 
 # Écriture du nouveau fichier mikrotik_save.json avec statuts mis à jour
 with open(json_file, 'w') as f:
@@ -193,7 +220,7 @@ for subnet_cidr, ftp_ip in subnet_ftp_servers.items():
     export_file_name: "export_{{{{ inventory_hostname }}}}.rsc"
     ftp_address: "{ftp_ip}"
     ftp_user: "ftpuser"
-    ftp_password: "Marsouk57"
+    ftp_password: "Ftpuser57"
     ftp_dst_path: "/mikrotik_{{{{ inventory_hostname }}}}_{{{{ lookup('pipe', 'date +%Y-%m-%d_%H-%M-%S') }}}}.rsc"
 
   tasks:

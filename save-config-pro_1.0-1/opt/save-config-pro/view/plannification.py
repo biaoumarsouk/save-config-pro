@@ -8,11 +8,12 @@ import weakref
 import sys
 from view.composants.scriptrunner import ScriptRunner
 import time
-
+import shutil
+from datetime import datetime
 
 class BackupSchedulerManager:
     _instance = None
-    CONFIG_FILE = "files/backup_schedule_config.json"  # Nom du fichier de configuration
+    CONFIG_FILE = "files/sauvegarde.json"  # Nom du fichier de configuration
 
     def __new__(cls):
         if cls._instance is None:
@@ -35,7 +36,13 @@ class BackupSchedulerManager:
         self.base_dir = os.path.dirname(os.path.abspath(__file__))
         self.lock = threading.Lock()
         self.backup_in_progress = False
-        self.last_start_time = None  # Pour stocker le moment où le timer a été démarré
+        self.last_start_time = None
+        self.current_user = None  # Nouvel attribut pour stocker l'utilisateur
+
+    def set_current_user(self, username):
+        """Définit l'utilisateur actuel pour le journal des sauvegardes"""
+        self.current_user = username
+
 
     def _load_config(self):
         """Charge la configuration depuis le fichier JSON"""
@@ -94,24 +101,127 @@ class BackupSchedulerManager:
 
     def start(self):
         with self.lock:
+            # Validation des entrées
             if self.interval_seconds <= 0:
-                raise ValueError("Durée invalide (au moins 1 seconde).")
+                raise ValueError("La durée doit être supérieure à 0")
             if self.running:
                 return
+
+            # Récupération des équipements actifs
+            active_equipments = self._get_active_macs()
+            
+            # Vérification s'il y a des équipements à sauvegarder
+            if not active_equipments:
+                messagebox.showwarning(
+                    "Aucun équipement", 
+                    "Aucun équipement sélectionné pour la sauvegarde.\n"
+                    "Veuillez d'abord créer une sauvegarde valide."
+                )
+                return
+
+            # Chemin du fichier de log
+            log_path = os.path.join(self.base_dir, "files", "operation_sauvegarde.json")
+            
+            # Initialisation du log
+            log_data = []
+            if os.path.exists(log_path):
+                try:
+                    with open(log_path, 'r') as f:
+                        log_data = json.load(f)
+                        if not isinstance(log_data, list):
+                            log_data = []
+                except Exception as e:
+                    print(f"⚠️ Erreur lecture log: {e} - Nouveau fichier créé")
+
+            # Conversion correcte de l'intervalle total (pas du temps restant)
+            total_seconds = self.interval_seconds
+            days = total_seconds // 86400
+            remaining = total_seconds % 86400
+            hours = remaining // 3600
+            remaining %= 3600
+            minutes = remaining // 60
+            seconds = remaining % 60
+            interval_str = f"{days}j {hours}h {minutes}m {seconds}s"
+
+            # Nouvelle entrée de log
+            new_entry = {
+                "date_debut": time.strftime("%Y-%m-%d %H:%M:%S"),
+                "date_fin": None,
+                "equipements": active_equipments,
+                "status": "en_cours",
+                "utilisateur": self.current_user if self.current_user else "system",
+                "intervalle": interval_str,
+                "intervalle_secondes": self.interval_seconds
+            }
+            log_data.append(new_entry)
+
+            # Sauvegarde du log
+            try:
+                with open(log_path, 'w') as f:
+                    json.dump(log_data, f, indent=2)
+            except Exception as e:
+                print(f"⚠️ Erreur écriture log: {e}")
+
+            # Démarrage du processus
             self.running = True
             self.backup_in_progress = False
             self.last_start_time = time.time()
-            self._save_config()  # Sauvegarder après démarrage
+            self._save_config()
 
         self._start_countdown()
         self._schedule_backup()
+    def _update_backup_log(self, success=True):
+        """Met à jour le statut de la dernière sauvegarde"""
+        log_path = os.path.join(self.base_dir, "files", "operation_sauvegarde.json")
+        if not os.path.exists(log_path):
+            return
+            
+        try:
+            with open(log_path, 'r+') as f:
+                log_data = json.load(f)
+                if log_data and log_data[-1]["status"] == "en_cours":
+                    log_data[-1].update({
+                        "status": "succes" if success else "echec"
+                    })
+                    f.seek(0)
+                    json.dump(log_data, f, indent=2)
+                    f.truncate()
+        except Exception as e:
+            print(f"⚠️ Erreur mise à jour log: {e}")
+
+    def _get_active_macs(self):
+        """Récupère les MAC et noms des équipements actifs"""
+        active_equipments = []
+        equipment_files = {
+            "cisco": "cisco_save.json",
+            "mikrotik": "mikrotik_save.json", 
+            "fortinet": "fortinet_save.json"
+        }
+        
+        for filename in equipment_files.values():
+            filepath = os.path.join(self.base_dir, "files", filename)
+            if not os.path.exists(filepath):
+                continue
+                
+            try:
+                with open(filepath, 'r') as f:
+                    data = json.load(f)
+                    active_equipments.extend(
+                        {"mac": eq["mac"], "name": eq.get("name", "Inconnu")}
+                        for eq in data
+                        if eq.get("status") and "mac" in eq
+                    )
+            except Exception as e:
+                print(f"⚠️ Erreur lecture {filename}: {e}")
+        
+        return active_equipments
 
     def stop(self):
         with self.lock:
             self.running = False
             self.backup_in_progress = False
             self.last_start_time = None
-            self._save_config()  # Sauvegarder après arrêt
+            self._save_config()
 
         if self.timer_thread:
             self.timer_thread.cancel()
@@ -120,6 +230,87 @@ class BackupSchedulerManager:
         if self.backup_thread and self.backup_thread.is_alive():
             self.backup_thread.join(timeout=1.0)
 
+        # Nettoyer les dossiers de backup et réinitialiser les status
+        self._cleanup_backup_folders()
+        self.update_last_date_fin()
+        self._reset_equipment_status()
+
+    def _reset_equipment_status(self):
+        """Réinitialise tous les status d'équipement à false"""
+        equipment_files = [
+            os.path.join(self.base_dir, "files", "mikrotik_save.json"),
+            os.path.join(self.base_dir, "files", "cisco_save.json"),
+            os.path.join(self.base_dir, "files", "fortinet_save.json")
+        ]
+
+        for file_path in equipment_files:
+            if os.path.exists(file_path):
+                try:
+                    with open(file_path, 'r+') as f:
+                        data = json.load(f)
+                        for item in data:
+                            item["sauvegarde"] = False
+                        f.seek(0)
+                        json.dump(data, f, indent=2)
+                        f.truncate()
+                    print(f"✅ Confirmation d'arrêt dans {os.path.basename(file_path)}")
+                except Exception as e:
+                    print(f"❌ Erreur réinitialisation {file_path}: {str(e)}")
+
+    def update_last_date_fin(self):
+        """Met à jour uniquement la date_fin du dernier enregistrement si elle est null/None"""
+        log_path = os.path.join(self.base_dir, "files", "operation_sauvegarde.json")
+        
+        if not os.path.exists(log_path):
+            return
+
+        try:
+            with open(log_path, 'r+') as f:
+                try:
+                    log_data = json.load(f)
+                    if not isinstance(log_data, list):  # Vérification du format
+                        raise ValueError("Format de log invalide")
+                except (json.JSONDecodeError, ValueError):
+                    return
+
+                if log_data:
+                    last_entry = log_data[-1]
+                    
+                    # Vérifie si date_fin est null/None ou n'existe pas
+                    if last_entry.get("date_fin") is None:
+                        # Mise à jour conditionnelle
+                        last_entry["date_fin"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        
+                        # Réécriture complète du fichier
+                        f.seek(0)
+                        json.dump(log_data, f, indent=2)
+                        f.truncate()
+
+        except PermissionError:
+            print("[ERREUR] Permission refusée pour le fichier de log")
+        except Exception as e:
+            print(f"[ERREUR] Échec mise à jour date_fin: {str(e)}")
+
+    def _cleanup_backup_folders(self):
+        """Supprime tous les dossiers de configuration Ansible/backup"""
+        backup_folders = [
+            os.path.join(self.base_dir, "files", "backup_mikrotik"),
+            os.path.join(self.base_dir, "files", "backup_cisco"),
+            os.path.join(self.base_dir, "files", "backup_fortinet")
+        ]
+
+        for folder in backup_folders:
+            if os.path.exists(folder):
+                try:
+                    for item in os.listdir(folder):
+                        item_path = os.path.join(folder, item)
+                        if os.path.isdir(item_path):
+                            shutil.rmtree(item_path)
+                        else:
+                            os.unlink(item_path)
+                    print(f"✅ Dossier {folder} nettoyé")
+                except Exception as e:
+                    print(f"❌ Erreur nettoyage {folder}: {str(e)}")
 
     def _run_backup_task(self):
         try:
@@ -185,6 +376,13 @@ class BackupSchedulerManager:
                     except Exception as e:
                         print(f"❌ {backup_subdir} - Erreur inattendue: {str(e)}", file=sys.stderr)
 
+                self._update_backup_log(success=True)
+        
+        except Exception as e:
+            print(f"❌ Erreur pendant la sauvegarde: {e}")
+            self._update_backup_log(success=False)
+            raise
+            
         finally:
             with self.lock:
                 self.backup_in_progress = False
@@ -396,7 +594,7 @@ class BackupScheduler(tk.Frame):
         """Crée le frame d'équipement"""
         self.equipement_frame = tk.LabelFrame(
             self.top_frame,
-            text="Equipements enregistrés",
+            text="Equipements en sauvegarde",
             font=("Arial", 12, "bold"),
             highlightthickness=0,
             bd=2,
@@ -405,15 +603,30 @@ class BackupScheduler(tk.Frame):
         )
         self.equipement_frame.grid(row=0, column=0, sticky="nsew", padx=5, pady=5, ipadx=5, ipady=5)
         self.theme_manager.register_widget(self.equipement_frame, 'bg_main', 'fg_main')
-        
-        # Conteneur pour centrer le contenu
+
+        # Conteneur pour centrer le contenu et placer les 3 labels
         container = tk.Frame(self.equipement_frame)
         container.pack(expand=True, fill='both')
         self.theme_manager.register_widget(container, 'bg_main')
-        
-        self.total_equip_label = tk.Label(container, text="", font=("Arial", 70, "bold"))
-        self.total_equip_label.pack(expand=True)
-        self.theme_manager.register_widget(self.total_equip_label, 'bg_main', 'fg_main')
+
+        # créer un frame centré dans container
+        center_frame = tk.Frame(container, bg=self.theme_manager.bg_main)
+        center_frame.pack(expand=True)
+        self.theme_manager.register_widget(center_frame, 'bg_main', 'fg_main')
+
+        # maintenant pack les 3 widgets dans center_frame sans expand ni fill
+        self.equip_saved_label = tk.Label(center_frame, text="0", font=("Arial", 40, "bold"))
+        self.equip_saved_label.pack(side="left", padx=(0, 2))
+        self.theme_manager.register_widget(self.equip_saved_label, 'bg_main', 'fg_main')
+
+        self.slash_canvas = tk.Canvas(center_frame, width=40, height=80, bg=self.theme_manager.bg_main, highlightthickness=0)
+        self.slash_canvas.pack(side="left", padx=0)
+        self.slash_canvas.create_line(5, 75, 35, 5, width=8, fill="green", capstyle='round')
+        self.theme_manager.register_widget(self.slash_canvas, 'bg_main', 'fg_main')
+
+        self.equip_total_label = tk.Label(center_frame, text="0", font=("Arial", 40, "bold"))
+        self.equip_total_label.pack(side="left", padx=(2, 0))
+        self.theme_manager.register_widget(self.equip_total_label, 'bg_main', 'fg_main')
 
     def _create_planning_frame(self):
         """Crée le frame de planification"""
@@ -676,7 +889,7 @@ class BackupScheduler(tk.Frame):
                     with open(json_path, 'r', encoding='utf-8') as f:
                         data = json.load(f)
                         for equip in data:
-                            if equip.get("status", False):
+                            if equip.get("sauvegarde", False):
                                 name = equip.get("name", "N/A")
                                 ip = equip.get("ip", "N/A")
                                 self.save_tree.insert("", "end", values=(name, ip))
@@ -725,6 +938,8 @@ class BackupScheduler(tk.Frame):
         self.minutes_label.config(text="00")
         self.seconds_label.config(text="00")
         self.update_animated_button()
+        self.actualiser_frame_sauvegarde()
+        self.update_total_equipements()
 
     def update_countdown(self):
         """Met à jour le compte à rebours"""
@@ -738,6 +953,7 @@ class BackupScheduler(tk.Frame):
         """Met à jour le nombre total d'équipements"""
         base_path = os.path.join(os.path.dirname(__file__), 'files')
         total = 0
+        total_sauvegarde = 0
         for nom, filename in self.fichiers.items():
             json_path = os.path.join(base_path, filename)
             if os.path.isfile(json_path):
@@ -745,9 +961,16 @@ class BackupScheduler(tk.Frame):
                     with open(json_path, 'r', encoding='utf-8') as f:
                         data = json.load(f)
                         total += len(data)
+                        for equip in data:
+                            if equip.get("sauvegarde", False):
+                                total_sauvegarde += 1
                 except Exception as e:
                     print(f"Erreur lecture {json_path}: {e}")
-        self.total_equip_label.config(text=f"{total}")
+        self.equip_saved_label.config(text=str(total_sauvegarde))
+        self.equip_total_label.config(text=str(total))   
+        self.equip_saved_label.update_idletasks()
+        self.equip_total_label.update_idletasks()     
+
 
     def animate_pulse(self):
         """Animation du bouton pulsant"""
@@ -812,6 +1035,7 @@ class BackupScheduler(tk.Frame):
             "Voulez-vous générer la sauvegarde de tous les équipements enregistrés ?\n"
             "Sinon, supprimez les équipements depuis le réseau scanné."
         ):
+            self.stop_schedule()
             runner = ScriptRunner()
 
             # Exécution des scripts de sauvegarde
@@ -832,5 +1056,5 @@ class BackupScheduler(tk.Frame):
                 
                 message = "❌ Une erreur s'est produite lors de la sauvegarde.\n" + "\n".join(errors)
                 messagebox.showerror("Erreur", message)
-        
         self.actualiser_frame_sauvegarde()
+        self.update_total_equipements()

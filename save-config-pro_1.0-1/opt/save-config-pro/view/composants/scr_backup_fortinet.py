@@ -7,6 +7,8 @@ import platform
 import psutil
 import struct
 import socket
+import paramiko
+
 
 def get_local_ip_in_subnet(subnet_cidr):
     subnet_ip, subnet_mask = subnet_cidr.split('/')
@@ -32,6 +34,26 @@ def is_reachable(ip):
                                 stderr=subprocess.DEVNULL)
         return result.returncode == 0
     except Exception:
+        return False
+    
+def test_ssh_connection(ip, username, password, timeout=3):
+    try:
+        client = paramiko.SSHClient()
+        client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+
+        client.connect(
+            hostname=ip,
+            username=username,
+            password=password,
+            timeout=timeout,
+            allow_agent=False,
+            look_for_keys=False
+        )
+        client.close()
+        return True
+    except (paramiko.ssh_exception.AuthenticationException,
+            paramiko.ssh_exception.SSHException,
+            socket.error):
         return False
 
 def get_mac_from_arp(ip):
@@ -100,32 +122,38 @@ ftp_equipments = {ftp_ip: [] for ftp_ip in subnets_ftp_mapping.values()}
 reachable_equipments = []
 for eq in equipments:
     ip = eq['ip']
+    username = eq['credentials']['username']
+    password = eq['credentials']['password']
     expected_mac = eq['mac'].lower()
     subprocess.run(f"ssh-keygen -R {ip}", shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
     if is_reachable(ip):
         real_mac = get_mac_from_arp(ip)
         if real_mac and real_mac == expected_mac:
-            eq['status'] = True
+            if test_ssh_connection(ip, username, password):
+                eq['status'] = True
+                eq['sauvegarde'] = True
 
-            # Trouver le subnet et le serveur FTP correspondant
-            for subnet, ftp_server in subnets_ftp_mapping.items():
-                subnet_ip, subnet_mask = subnet.split('/')
-                subnet_int = struct.unpack("!I", socket.inet_aton(subnet_ip))[0]
-                mask_int = (0xFFFFFFFF << (32 - int(subnet_mask))) & 0xFFFFFFFF
-                ip_int = struct.unpack("!I", socket.inet_aton(ip))[0]
+                # Trouver le subnet et le serveur FTP correspondant
+                for subnet, ftp_server in subnets_ftp_mapping.items():
+                    subnet_ip, subnet_mask = subnet.split('/')
+                    subnet_int = struct.unpack("!I", socket.inet_aton(subnet_ip))[0]
+                    mask_int = (0xFFFFFFFF << (32 - int(subnet_mask))) & 0xFFFFFFFF
+                    ip_int = struct.unpack("!I", socket.inet_aton(ip))[0]
 
-                if (ip_int & mask_int) == (subnet_int & mask_int):
-                    eq["subnet"] = subnet
-                    eq["ftp_server"] = ftp_server
-                    ftp_equipments[ftp_server].append(eq)
-                    break
+                    if (ip_int & mask_int) == (subnet_int & mask_int):
+                        eq["subnet"] = subnet
+                        eq["ftp_server"] = ftp_server
+                        ftp_equipments[ftp_server].append(eq)
+                        break
 
-            reachable_equipments.append(eq)
+                reachable_equipments.append(eq)
+            else:
+                eq['sauvegarde'] = False
         else:
-            eq['status'] = False
+            eq['sauvegarde'] = False
     else:
-        eq['status'] = False
+        eq['sauvegarde'] = False
 
 
 if not reachable_equipments:
@@ -193,7 +221,7 @@ for ftp_server_ip, eq_list in ftp_equipments.items():
         execute backup config ftp fortinet_{{{{ inventory_hostname }}}}_{{{{ lookup('pipe', 'date +%Y-%m-%d_%H-%M-%S') }}}}.cfg
         {ftp_server_ip}
         ftpuser
-        Marsouk57
+        Ftpuser57
 """)
 
     print(f"✅ Sauvegarde générée pour le serveur FTP {ftp_server_ip} dans : {backup_dir}")

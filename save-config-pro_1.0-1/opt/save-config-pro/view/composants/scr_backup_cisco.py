@@ -7,6 +7,7 @@ from datetime import datetime
 import psutil
 import struct
 import socket
+import paramiko
 
 def get_local_ip_in_subnet(subnet_cidr):
     subnet_ip, subnet_mask = subnet_cidr.split('/')
@@ -23,6 +24,7 @@ def get_local_ip_in_subnet(subnet_cidr):
                 if (ip_int & mask_int) == (subnet_int & mask_int):
                     return addr.address
     return None
+
 
 # Charger les sous-réseaux
 networks_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'files', 'networks.json')
@@ -46,6 +48,26 @@ def is_reachable(ip):
     except Exception:
         return False
 
+def test_ssh_connection(ip, username, password, timeout=3):
+    try:
+        client = paramiko.SSHClient()
+        client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+
+        client.connect(
+            hostname=ip,
+            username=username,
+            password=password,
+            timeout=timeout,
+            allow_agent=False,
+            look_for_keys=False
+        )
+        client.close()
+        return True
+    except (paramiko.ssh_exception.AuthenticationException,
+            paramiko.ssh_exception.SSHException,
+            socket.error):
+        return False
+    
 def get_mac_from_arp(ip):
     try:
         arp_result = subprocess.check_output(["arp", "-n", ip], universal_newlines=True)
@@ -106,32 +128,38 @@ def process_subnet(subnet, ftp_ip, equipments):
     for equipment in equipments:
         equip_type = equipment.get("system", "").upper()
         ip = equipment.get('ip')
+        username = equipment['credentials']['username']
+        password = equipment['credentials']['password']
         expected_mac = equipment.get('mac', '').upper().replace("-", ":")
 
         if is_reachable(ip):
             actual_mac = get_mac_from_arp(ip)
             if actual_mac and actual_mac == expected_mac:
-                mac = expected_mac.replace(":", "-")
-                username = equipment['credentials']['username']
-                password = equipment['credentials']['password']
-                enable_pwd = equipment['credentials'].get('enable_password')
-                if equip_type == "IOS":
-                    line = f"{mac} ansible_host={ip} ansible_user={username} ansible_ssh_pass={password} ansible_network_os=cisco.ios.ios ansible_connection=network_cli"
-                elif equip_type == "ASA":
-                    line = f"{mac} ansible_host={ip} ansible_user={username} ansible_ssh_pass={password} ansible_network_os=cisco.asa.asa ansible_connection=network_cli"
+                if test_ssh_connection(ip, username, password):
+                    mac = expected_mac.replace(":", "-")
+                    username = equipment['credentials']['username']
+                    password = equipment['credentials']['password']
+                    enable_pwd = equipment['credentials'].get('enable_password')
+                    if equip_type == "IOS":
+                        line = f"{mac} ansible_host={ip} ansible_user={username} ansible_ssh_pass={password} ansible_network_os=cisco.ios.ios ansible_connection=network_cli"
+                    elif equip_type == "ASA":
+                        line = f"{mac} ansible_host={ip} ansible_user={username} ansible_ssh_pass={password} ansible_network_os=cisco.asa.asa ansible_connection=network_cli"
+                    else:
+                        continue
+                    if enable_pwd:
+                        line += f" ansible_become=yes ansible_become_method=enable ansible_become_password={enable_pwd}"
+                    groupes[equip_type].append(line)
+                    equipment['status'] = True
+                    equipment['sauvegarde'] = True
+                    equipment['subnet'] = subnet
+                    equipment['ftp_server'] = ftp_ip
+                    has_valid_equipments = True
                 else:
-                    continue
-                if enable_pwd:
-                    line += f" ansible_become=yes ansible_become_method=enable ansible_become_password={enable_pwd}"
-                groupes[equip_type].append(line)
-                equipment['status'] = True
-                equipment['subnet'] = subnet
-                equipment['ftp_server'] = ftp_ip
-                has_valid_equipments = True
+                    equipment['sauvegarde'] = False
             else:
-                equipment['status'] = False
+                equipment['sauvegarde'] = False
         else:
-            equipment['status'] = False
+            equipment['sauvegarde'] = False
 
 
     if groupes["IOS"]:
@@ -170,7 +198,7 @@ def process_subnet(subnet, ftp_ip, equipments):
   vars:
     ftp_server: "{ftp_ip}"
     ftp_username: "ftpuser"
-    ftp_password: "Marsouk57"
+    ftp_password: "Ftpuser57"
     current_date: "{{{{ lookup('pipe', 'date +\\\"%Y-%m-%d_%H-%M-%S\\\"') }}}}"
   tasks:
     - name: Copier la configuration vers le serveur FTP
@@ -187,7 +215,7 @@ def process_subnet(subnet, ftp_ip, equipments):
   vars:
     ftp_server: "{ftp_ip}"
     ftp_username: "ftpuser"
-    ftp_password: "Marsouk57"
+    ftp_password: "Ftpuser57"
     backup_filename: "cisco_asa_{{{{ inventory_hostname_short }}}}_{{{{ lookup('pipe', 'date +\\\"%Y-%m-%d_%H-%M-%S\\\"') }}}}.cfg"
   tasks:
     - name: Exécuter la sauvegarde vers FTP

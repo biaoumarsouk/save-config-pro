@@ -402,7 +402,7 @@ class SaveRestauration(tk.Frame):
         self.table_frame.grid_columnconfigure(0, weight=1)
         self.theme_manager.register_widget(self.table_frame, 'bg_main')
 
-        self.columns = ("Nom", "Adresse IP", "Types", "Connectés")
+        self.columns = ("Nom", "Adresse IP", "Types", "En sauvegarde")
         self.tree = ttk.Treeview(self.table_frame, columns=self.columns, show="headings")
         for col in self.columns:
             self.tree.heading(col, text=col)

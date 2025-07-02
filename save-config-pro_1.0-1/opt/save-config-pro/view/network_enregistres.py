@@ -103,7 +103,7 @@ class SousReseauxEnregistres(tk.Frame):
         inner_status.pack(anchor="center")  # Centré horizontalement
         self.theme_manager.register_widget(inner_status, 'bg_main')
 
-        self.device_count_var = tk.StringVar(value="Appareils détectés : 0")
+        self.device_count_var = tk.StringVar(value="Réseaux enrégistrés : 0")
 
         count_label = tk.Label(
             inner_status,
@@ -187,7 +187,7 @@ class SousReseauxEnregistres(tk.Frame):
             self.tree.delete(*self.tree.get_children())
             for row in rows:
                 self.tree.insert("", "end", values=row)
-            self.device_count_var.set(f"Appareils détectés : {count}")
+            self.device_count_var.set(f"Réseaux enrégistrés : {count}")
 
         run_with_loading(
             content_frame=self.parent,

@@ -78,6 +78,7 @@ class Dashboard(tk.Frame):
         self.after(100, self.create_charts)
         self.update_clock()
 
+
         # Conteneur droit (tableaux et services)
         self.right_container = tk.Frame(self.main_container)
         self.right_container.grid(row=0, column=1, sticky="nsew", padx=10, pady=10)
@@ -208,24 +209,74 @@ class Dashboard(tk.Frame):
             {"title": "Appareil en sauvegarde", "count_func": self.count_appareil_en_sauv, "callback": self.controller.show_saverestauration},
             {"title": "Pannes enregistrées", "count_func": self.count_pannes, "callback": self.controller.show_saverestauration},
         ]
+        
+        self.section_widgets = []  # Liste pour stocker les références des widgets
+        
+        # Création des statistiques
+        self.create_stats_sections()
+        self.start_10s_timer()  # Démarrer le timer séparé
 
-        # Création des statistiques (2 lignes, 3 colonnes)
-        for i, s in enumerate(self.sections):
+    def create_stats_sections(self):
+        """Crée les sections de statistiques"""
+        for i, section in enumerate(self.sections):
             row, col = divmod(i, 3)
-            frame = tk.LabelFrame(self.bottom_stats_frame, text=s["title"],
-                                font=("Arial", 12, "bold"),
-                                bd=2, relief="groove", labelanchor="n")
+            
+            # Création du frame
+            frame = tk.LabelFrame(
+                self.bottom_stats_frame,
+                text=section["title"],
+                font=("Arial", 12, "bold"),
+                bd=2,
+                relief="groove",
+                labelanchor="n"
+            )
             frame.grid(row=row, column=col, padx=10, pady=10, sticky="nsew")
             self.theme_manager.register_widget(frame, 'bg_main', 'fg_main')
 
-            lbl = tk.Label(frame, text=str(s["count_func"]()),
-                         font=("Arial", 30, "bold"),
-                         fg=self.theme_manager.fg_main)
+            # Label pour le compteur
+            lbl = tk.Label(
+                frame,
+                text=str(section["count_func"]()),
+                font=("Arial", 30, "bold"),
+                fg=self.theme_manager.fg_main
+            )
             lbl.pack(expand=True)
             self.theme_manager.register_widget(lbl, 'bg_main', 'fg_main')
 
-            frame.bind("<Button-1>", lambda e, cb=s["callback"]: cb())
-            lbl.bind("<Button-1>", lambda e, cb=s["callback"]: cb())
+            # Gestion des événements
+            frame.bind("<Button-1>", lambda e, cb=section["callback"]: cb())
+            lbl.bind("<Button-1>", lambda e, cb=section["callback"]: cb())
+            
+            # Stockage des références
+            self.section_widgets.append({
+                "frame": frame,
+                "label": lbl,
+                "title": section["title"],
+                "callback": section["callback"]
+            })
+
+
+    def start_10s_timer(self):
+        self.remplir_fichiers_ftp()
+        self.update_section(2)
+        self.remplir_treeview()
+        self.after(10000, self.start_10s_timer) 
+
+    def update_section(self, section_index):
+        """Met à jour une section spécifique"""
+        if 0 <= section_index < len(self.section_widgets):
+            section = self.section_widgets[section_index]
+            try:
+                new_count = self.sections[section_index]["count_func"]()
+                section["label"].config(text=str(new_count))
+                section["frame"].config(text=f"{section['title']}")
+            except Exception as e:
+                print(f"Erreur mise à jour section {section_index}: {e}")
+
+    def refresh_all_stats(self):
+        """Rafraîchit toutes les sections"""
+        for i in range(len(self.section_widgets)):
+            self.update_section(i)
 
     def create_charts(self):
         """Crée le graphique avec une taille agrandie"""
@@ -302,7 +353,7 @@ class Dashboard(tk.Frame):
     def update_clock(self):
         try:
             # Chemin absolu vers le fichier de config partagé
-            config_path = os.path.abspath(os.path.join("view", "files", "backup_schedule_config.json"))
+            config_path = os.path.abspath(os.path.join("view", "files", "sauvegarde.json"))
 
             with open(config_path, "r") as f:
                 config = json.load(f)

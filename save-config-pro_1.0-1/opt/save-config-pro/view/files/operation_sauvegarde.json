@@ -1,0 +1,784 @@
+[
+  {
+    "date_debut": "2025-07-01 23:32:59",
+    "date_fin": "2025-07-01 23:43:03",
+    "equipements": [
+      {
+        "mac": "AA:BB:CC:80:01:00",
+        "name": "Switch"
+      },
+      {
+        "mac": "CA:02:C9:B8:00:1C",
+        "name": "RouterCisco2"
+      },
+      {
+        "mac": "0C:D8:E1:9D:00:00",
+        "name": "Rmikrotik"
+      },
+      {
+        "mac": "0C:AC:9C:32:00:00",
+        "name": "Fortigate"
+      },
+      {
+        "mac": "0C:50:2E:E4:00:00",
+        "name": "Fortigate 2"
+      }
+    ],
+    "status": "succes",
+    "utilisateur": "aaaa",
+    "intervalle": "0j 0h 4m 0s",
+    "intervalle_secondes": 240
+  },
+  {
+    "date_debut": "2025-07-01 23:43:35",
+    "date_fin": "2025-07-01 23:45:23",
+    "equipements": [
+      {
+        "mac": "AA:BB:CC:80:01:00",
+        "name": "Switch"
+      },
+      {
+        "mac": "CA:02:C9:B8:00:1C",
+        "name": "RouterCisco2"
+      },
+      {
+        "mac": "0C:D8:E1:9D:00:00",
+        "name": "Rmikrotik"
+      },
+      {
+        "mac": "0C:AC:9C:32:00:00",
+        "name": "Fortigate"
+      },
+      {
+        "mac": "0C:50:2E:E4:00:00",
+        "name": "Fortigate 2"
+      }
+    ],
+    "status": "succes",
+    "utilisateur": "aaaa",
+    "intervalle": "0j 0h 4m 0s",
+    "intervalle_secondes": 240
+  },
+  {
+    "date_debut": "2025-07-02 11:22:13",
+    "date_fin": "2025-07-02 11:25:22",
+    "equipements": [
+      {
+        "mac": "AA:BB:CC:80:01:00",
+        "name": "Switch"
+      },
+      {
+        "mac": "CA:01:3F:7D:00:1C",
+        "name": "Router"
+      },
+      {
+        "mac": "AA:BB:CC:80:02:00",
+        "name": "Switch2"
+      },
+      {
+        "mac": "CA:02:C9:B8:00:1C",
+        "name": "Router2"
+      },
+      {
+        "mac": "0C:D8:E1:9D:00:00",
+        "name": "Rmikrotik"
+      },
+      {
+        "mac": "0C:AC:9C:32:00:00",
+        "name": "Fortigate"
+      },
+      {
+        "mac": "0C:50:2E:E4:00:00",
+        "name": "Fortigate 2"
+      }
+    ],
+    "status": "succes",
+    "utilisateur": "aaaa",
+    "intervalle": "0j 0h 5m 0s",
+    "intervalle_secondes": 300
+  },
+  {
+    "date_debut": "2025-07-02 12:10:58",
+    "date_fin": "2025-07-02 12:11:45",
+    "equipements": [
+      {
+        "mac": "AA:BB:CC:80:01:00",
+        "name": "Switch"
+      },
+      {
+        "mac": "CA:01:3F:7D:00:1C",
+        "name": "Router"
+      },
+      {
+        "mac": "AA:BB:CC:80:02:00",
+        "name": "Switch2"
+      },
+      {
+        "mac": "CA:02:C9:B8:00:1C",
+        "name": "Router2"
+      },
+      {
+        "mac": "0C:D8:E1:9D:00:00",
+        "name": "Rmikrotik"
+      },
+      {
+        "mac": "0C:AC:9C:32:00:00",
+        "name": "Fortigate"
+      },
+      {
+        "mac": "0C:50:2E:E4:00:00",
+        "name": "Fortigate 2"
+      }
+    ],
+    "status": "succes",
+    "utilisateur": "aaaa",
+    "intervalle": "0j 0h 4m 0s",
+    "intervalle_secondes": 240
+  },
+  {
+    "date_debut": "2025-07-02 12:21:19",
+    "date_fin": "2025-07-02 12:21:23",
+    "equipements": [
+      {
+        "mac": "AA:BB:CC:80:01:00",
+        "name": "Switch"
+      },
+      {
+        "mac": "CA:01:3F:7D:00:1C",
+        "name": "Router"
+      },
+      {
+        "mac": "AA:BB:CC:80:02:00",
+        "name": "Switch2"
+      },
+      {
+        "mac": "CA:02:C9:B8:00:1C",
+        "name": "Router2"
+      },
+      {
+        "mac": "0C:D8:E1:9D:00:00",
+        "name": "Rmikrotik"
+      },
+      {
+        "mac": "0C:AC:9C:32:00:00",
+        "name": "Fortigate"
+      },
+      {
+        "mac": "0C:50:2E:E4:00:00",
+        "name": "Fortigate 2"
+      }
+    ],
+    "status": "succes",
+    "utilisateur": "aaaa",
+    "intervalle": "0j 0h 4m 0s",
+    "intervalle_secondes": 240
+  },
+  {
+    "date_debut": "2025-07-02 12:22:43",
+    "date_fin": "2025-07-02 12:24:48",
+    "equipements": [
+      {
+        "mac": "AA:BB:CC:80:01:00",
+        "name": "Switch"
+      },
+      {
+        "mac": "CA:01:3F:7D:00:1C",
+        "name": "Router"
+      },
+      {
+        "mac": "AA:BB:CC:80:02:00",
+        "name": "Switch2"
+      },
+      {
+        "mac": "CA:02:C9:B8:00:1C",
+        "name": "Router2"
+      },
+      {
+        "mac": "0C:D8:E1:9D:00:00",
+        "name": "Rmikrotik"
+      },
+      {
+        "mac": "0C:AC:9C:32:00:00",
+        "name": "Fortigate"
+      },
+      {
+        "mac": "0C:50:2E:E4:00:00",
+        "name": "Fortigate 2"
+      }
+    ],
+    "status": "succes",
+    "utilisateur": "aaaa",
+    "intervalle": "0j 0h 4m 0s",
+    "intervalle_secondes": 240
+  },
+  {
+    "date_debut": "2025-07-02 17:19:50",
+    "date_fin": "2025-07-02 17:20:21",
+    "equipements": [
+      {
+        "mac": "AA:BB:CC:80:01:00",
+        "name": "Switch"
+      },
+      {
+        "mac": "CA:01:3F:7D:00:1C",
+        "name": "Router"
+      },
+      {
+        "mac": "AA:BB:CC:80:02:00",
+        "name": "Switch2"
+      },
+      {
+        "mac": "CA:02:C9:B8:00:1C",
+        "name": "Router2"
+      },
+      {
+        "mac": "0C:D8:E1:9D:00:00",
+        "name": "Rmikrotik"
+      },
+      {
+        "mac": "0C:AC:9C:32:00:00",
+        "name": "Fortigate"
+      },
+      {
+        "mac": "0C:50:2E:E4:00:00",
+        "name": "Fortigate 2"
+      }
+    ],
+    "status": "succes",
+    "utilisateur": "aaaa",
+    "intervalle": "0j 0h 4m 0s",
+    "intervalle_secondes": 240
+  },
+  {
+    "date_debut": "2025-07-02 21:40:43",
+    "date_fin": "2025-07-02 22:22:15",
+    "equipements": [
+      {
+        "mac": "AA:BB:CC:80:01:00",
+        "name": "Switch"
+      },
+      {
+        "mac": "CA:01:3F:7D:00:1C",
+        "name": "Router"
+      },
+      {
+        "mac": "AA:BB:CC:80:02:00",
+        "name": "Switch2"
+      },
+      {
+        "mac": "CA:02:C9:B8:00:1C",
+        "name": "Router2"
+      },
+      {
+        "mac": "0C:D8:E1:9D:00:00",
+        "name": "Rmikrotik"
+      },
+      {
+        "mac": "0C:AC:9C:32:00:00",
+        "name": "Fortigate"
+      },
+      {
+        "mac": "0C:50:2E:E4:00:00",
+        "name": "Fortigate 2"
+      }
+    ],
+    "status": "succes",
+    "utilisateur": "aaaa",
+    "intervalle": "0j 0h 4m 0s",
+    "intervalle_secondes": 240
+  },
+  {
+    "date_debut": "2025-07-02 22:28:06",
+    "date_fin": "2025-07-02 22:29:35",
+    "equipements": [
+      {
+        "mac": "AA:BB:CC:80:01:00",
+        "name": "Switch"
+      },
+      {
+        "mac": "CA:01:3F:7D:00:1C",
+        "name": "Router"
+      },
+      {
+        "mac": "AA:BB:CC:80:02:00",
+        "name": "Switch2"
+      },
+      {
+        "mac": "CA:02:C9:B8:00:1C",
+        "name": "Router2"
+      },
+      {
+        "mac": "0C:D8:E1:9D:00:00",
+        "name": "Rmikrotik"
+      },
+      {
+        "mac": "0C:AC:9C:32:00:00",
+        "name": "Fortigate"
+      },
+      {
+        "mac": "0C:50:2E:E4:00:00",
+        "name": "Fortigate 2"
+      }
+    ],
+    "status": "succes",
+    "utilisateur": "aaaa",
+    "intervalle": "0j 0h 2m 0s",
+    "intervalle_secondes": 120
+  },
+  {
+    "date_debut": "2025-07-02 22:31:41",
+    "date_fin": "2025-07-02 22:31:50",
+    "equipements": [
+      {
+        "mac": "AA:BB:CC:80:01:00",
+        "name": "Switch"
+      },
+      {
+        "mac": "CA:01:3F:7D:00:1C",
+        "name": "Router"
+      },
+      {
+        "mac": "AA:BB:CC:80:02:00",
+        "name": "Switch2"
+      },
+      {
+        "mac": "CA:02:C9:B8:00:1C",
+        "name": "Router2"
+      },
+      {
+        "mac": "0C:D8:E1:9D:00:00",
+        "name": "Rmikrotik"
+      },
+      {
+        "mac": "0C:AC:9C:32:00:00",
+        "name": "Fortigate"
+      },
+      {
+        "mac": "0C:50:2E:E4:00:00",
+        "name": "Fortigate 2"
+      }
+    ],
+    "status": "succes",
+    "utilisateur": "aaaa",
+    "intervalle": "0j 0h 3m 0s",
+    "intervalle_secondes": 180
+  },
+  {
+    "date_debut": "2025-07-02 22:32:34",
+    "date_fin": "2025-07-02 22:34:52",
+    "equipements": [
+      {
+        "mac": "AA:BB:CC:80:01:00",
+        "name": "Switch"
+      },
+      {
+        "mac": "CA:01:3F:7D:00:1C",
+        "name": "Router"
+      },
+      {
+        "mac": "AA:BB:CC:80:02:00",
+        "name": "Switch2"
+      },
+      {
+        "mac": "CA:02:C9:B8:00:1C",
+        "name": "Router2"
+      },
+      {
+        "mac": "0C:D8:E1:9D:00:00",
+        "name": "Rmikrotik"
+      },
+      {
+        "mac": "0C:AC:9C:32:00:00",
+        "name": "Fortigate"
+      },
+      {
+        "mac": "0C:50:2E:E4:00:00",
+        "name": "Fortigate 2"
+      }
+    ],
+    "status": "succes",
+    "utilisateur": "aaaa",
+    "intervalle": "0j 0h 3m 0s",
+    "intervalle_secondes": 180
+  },
+  {
+    "date_debut": "2025-07-02 22:35:06",
+    "date_fin": "2025-07-02 22:37:13",
+    "equipements": [
+      {
+        "mac": "AA:BB:CC:80:01:00",
+        "name": "Switch"
+      },
+      {
+        "mac": "CA:01:3F:7D:00:1C",
+        "name": "Router"
+      },
+      {
+        "mac": "AA:BB:CC:80:02:00",
+        "name": "Switch2"
+      },
+      {
+        "mac": "CA:02:C9:B8:00:1C",
+        "name": "Router2"
+      },
+      {
+        "mac": "0C:D8:E1:9D:00:00",
+        "name": "Rmikrotik"
+      },
+      {
+        "mac": "0C:AC:9C:32:00:00",
+        "name": "Fortigate"
+      },
+      {
+        "mac": "0C:50:2E:E4:00:00",
+        "name": "Fortigate 2"
+      }
+    ],
+    "status": "succes",
+    "utilisateur": "aaaa",
+    "intervalle": "0j 0h 7m 0s",
+    "intervalle_secondes": 420
+  },
+  {
+    "date_debut": "2025-07-02 22:38:24",
+    "date_fin": "2025-07-02 22:38:27",
+    "equipements": [
+      {
+        "mac": "AA:BB:CC:80:01:00",
+        "name": "Switch"
+      },
+      {
+        "mac": "CA:01:3F:7D:00:1C",
+        "name": "Router"
+      },
+      {
+        "mac": "AA:BB:CC:80:02:00",
+        "name": "Switch2"
+      },
+      {
+        "mac": "CA:02:C9:B8:00:1C",
+        "name": "Router2"
+      },
+      {
+        "mac": "0C:D8:E1:9D:00:00",
+        "name": "Rmikrotik"
+      },
+      {
+        "mac": "0C:AC:9C:32:00:00",
+        "name": "Fortigate"
+      },
+      {
+        "mac": "0C:50:2E:E4:00:00",
+        "name": "Fortigate 2"
+      }
+    ],
+    "status": "succes",
+    "utilisateur": "aaaa",
+    "intervalle": "0j 0h 5m 0s",
+    "intervalle_secondes": 300
+  },
+  {
+    "date_debut": "2025-07-02 22:49:48",
+    "date_fin": "2025-07-02 22:50:08",
+    "equipements": [
+      {
+        "mac": "AA:BB:CC:80:01:00",
+        "name": "Switch"
+      },
+      {
+        "mac": "CA:01:3F:7D:00:1C",
+        "name": "Router"
+      },
+      {
+        "mac": "AA:BB:CC:80:02:00",
+        "name": "Switch2"
+      },
+      {
+        "mac": "CA:02:C9:B8:00:1C",
+        "name": "Router2"
+      },
+      {
+        "mac": "0C:D8:E1:9D:00:00",
+        "name": "Rmikrotik"
+      },
+      {
+        "mac": "0C:AC:9C:32:00:00",
+        "name": "Fortigate"
+      },
+      {
+        "mac": "0C:50:2E:E4:00:00",
+        "name": "Fortigate 2"
+      }
+    ],
+    "status": "succes",
+    "utilisateur": "aaaa",
+    "intervalle": "0j 0h 3m 0s",
+    "intervalle_secondes": 180
+  },
+  {
+    "date_debut": "2025-07-02 22:51:15",
+    "date_fin": "2025-07-02 22:51:44",
+    "equipements": [
+      {
+        "mac": "AA:BB:CC:80:01:00",
+        "name": "Switch"
+      },
+      {
+        "mac": "CA:01:3F:7D:00:1C",
+        "name": "Router"
+      },
+      {
+        "mac": "AA:BB:CC:80:02:00",
+        "name": "Switch2"
+      },
+      {
+        "mac": "CA:02:C9:B8:00:1C",
+        "name": "Router2"
+      },
+      {
+        "mac": "0C:D8:E1:9D:00:00",
+        "name": "Rmikrotik"
+      },
+      {
+        "mac": "0C:AC:9C:32:00:00",
+        "name": "Fortigate"
+      },
+      {
+        "mac": "0C:50:2E:E4:00:00",
+        "name": "Fortigate 2"
+      }
+    ],
+    "status": "succes",
+    "utilisateur": "aaaa",
+    "intervalle": "14679j 1h 0m 0s",
+    "intervalle_secondes": 1268269200
+  },
+  {
+    "date_debut": "2025-07-02 22:51:52",
+    "date_fin": "2025-07-02 22:52:17",
+    "equipements": [
+      {
+        "mac": "AA:BB:CC:80:01:00",
+        "name": "Switch"
+      },
+      {
+        "mac": "CA:01:3F:7D:00:1C",
+        "name": "Router"
+      },
+      {
+        "mac": "AA:BB:CC:80:02:00",
+        "name": "Switch2"
+      },
+      {
+        "mac": "CA:02:C9:B8:00:1C",
+        "name": "Router2"
+      },
+      {
+        "mac": "0C:D8:E1:9D:00:00",
+        "name": "Rmikrotik"
+      },
+      {
+        "mac": "0C:AC:9C:32:00:00",
+        "name": "Fortigate"
+      },
+      {
+        "mac": "0C:50:2E:E4:00:00",
+        "name": "Fortigate 2"
+      }
+    ],
+    "status": "succes",
+    "utilisateur": "aaaa",
+    "intervalle": "4454545455445434j 0h 0m 0s",
+    "intervalle_secondes": 384872727350485497600
+  },
+  {
+    "date_debut": "2025-07-02 22:52:27",
+    "date_fin": "2025-07-02 22:53:10",
+    "equipements": [
+      {
+        "mac": "AA:BB:CC:80:01:00",
+        "name": "Switch"
+      },
+      {
+        "mac": "CA:01:3F:7D:00:1C",
+        "name": "Router"
+      },
+      {
+        "mac": "AA:BB:CC:80:02:00",
+        "name": "Switch2"
+      },
+      {
+        "mac": "CA:02:C9:B8:00:1C",
+        "name": "Router2"
+      },
+      {
+        "mac": "0C:D8:E1:9D:00:00",
+        "name": "Rmikrotik"
+      },
+      {
+        "mac": "0C:AC:9C:32:00:00",
+        "name": "Fortigate"
+      },
+      {
+        "mac": "0C:50:2E:E4:00:00",
+        "name": "Fortigate 2"
+      }
+    ],
+    "status": "succes",
+    "utilisateur": "aaaa",
+    "intervalle": "34334445554444554555555656656565665j 0h 0m 0s",
+    "intervalle_secondes": 2966496095904009513600008735127273456000
+  },
+  {
+    "date_debut": "2025-07-02 23:07:14",
+    "date_fin": "2025-07-02 23:07:17",
+    "equipements": [
+      {
+        "mac": "AA:BB:CC:80:01:00",
+        "name": "Switch"
+      },
+      {
+        "mac": "CA:01:3F:7D:00:1C",
+        "name": "Router"
+      },
+      {
+        "mac": "AA:BB:CC:80:02:00",
+        "name": "Switch2"
+      },
+      {
+        "mac": "CA:02:C9:B8:00:1C",
+        "name": "Router2"
+      },
+      {
+        "mac": "0C:D8:E1:9D:00:00",
+        "name": "Rmikrotik"
+      },
+      {
+        "mac": "0C:AC:9C:32:00:00",
+        "name": "Fortigate"
+      },
+      {
+        "mac": "0C:50:2E:E4:00:00",
+        "name": "Fortigate 2"
+      }
+    ],
+    "status": "succes",
+    "utilisateur": "aaaa",
+    "intervalle": "0j 0h 4m 0s",
+    "intervalle_secondes": 240
+  },
+  {
+    "date_debut": "2025-07-02 23:26:36",
+    "date_fin": "2025-07-02 23:26:39",
+    "equipements": [
+      {
+        "mac": "AA:BB:CC:80:01:00",
+        "name": "Switch"
+      },
+      {
+        "mac": "CA:01:3F:7D:00:1C",
+        "name": "Router"
+      },
+      {
+        "mac": "AA:BB:CC:80:02:00",
+        "name": "Switch2"
+      },
+      {
+        "mac": "CA:02:C9:B8:00:1C",
+        "name": "Router2"
+      },
+      {
+        "mac": "0C:D8:E1:9D:00:00",
+        "name": "Rmikrotik"
+      },
+      {
+        "mac": "0C:AC:9C:32:00:00",
+        "name": "Fortigate"
+      },
+      {
+        "mac": "0C:50:2E:E4:00:00",
+        "name": "Fortigate 2"
+      }
+    ],
+    "status": "succes",
+    "utilisateur": "aaaa",
+    "intervalle": "0j 0h 4m 0s",
+    "intervalle_secondes": 240
+  },
+  {
+    "date_debut": "2025-07-02 23:29:32",
+    "date_fin": "2025-07-02 23:29:35",
+    "equipements": [
+      {
+        "mac": "AA:BB:CC:80:01:00",
+        "name": "Switch"
+      },
+      {
+        "mac": "CA:01:3F:7D:00:1C",
+        "name": "Router"
+      },
+      {
+        "mac": "AA:BB:CC:80:02:00",
+        "name": "Switch2"
+      },
+      {
+        "mac": "CA:02:C9:B8:00:1C",
+        "name": "Router2"
+      },
+      {
+        "mac": "0C:D8:E1:9D:00:00",
+        "name": "Rmikrotik"
+      },
+      {
+        "mac": "0C:AC:9C:32:00:00",
+        "name": "Fortigate"
+      },
+      {
+        "mac": "0C:50:2E:E4:00:00",
+        "name": "Fortigate 2"
+      }
+    ],
+    "status": "succes",
+    "utilisateur": "aaaa",
+    "intervalle": "0j 0h 4m 0s",
+    "intervalle_secondes": 240
+  },
+  {
+    "date_debut": "2025-07-02 23:30:42",
+    "date_fin": "2025-07-02 23:30:46",
+    "equipements": [
+      {
+        "mac": "AA:BB:CC:80:01:00",
+        "name": "Switch"
+      },
+      {
+        "mac": "CA:01:3F:7D:00:1C",
+        "name": "Router"
+      },
+      {
+        "mac": "AA:BB:CC:80:02:00",
+        "name": "Switch2"
+      },
+      {
+        "mac": "CA:02:C9:B8:00:1C",
+        "name": "Router2"
+      },
+      {
+        "mac": "0C:D8:E1:9D:00:00",
+        "name": "Rmikrotik"
+      },
+      {
+        "mac": "0C:AC:9C:32:00:00",
+        "name": "Fortigate"
+      },
+      {
+        "mac": "0C:50:2E:E4:00:00",
+        "name": "Fortigate 2"
+      }
+    ],
+    "status": "succes",
+    "utilisateur": "aaaa",
+    "intervalle": "0j 0h 4m 0s",
+    "intervalle_secondes": 240
+  }
+]

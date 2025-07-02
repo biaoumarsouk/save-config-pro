@@ -1,1 +1,24 @@
-{}
+{
+    "aaaa": {
+        "nom": "ssd",
+        "prenom": "aaaa",
+        "password": "61be55a8e2f6b4e172338bddf184d6dbee29c98853e0a0485ecee7f27b9af0b4",
+        "status": true,
+        "role": "admin",
+        "connexion": true,
+        "date_creation": "2025-06-26 21:49:30",
+        "derniere_connexion": "2025-07-02 23:45:19",
+        "photo_profil": "default.png"
+    },
+    "vvvv": {
+        "nom": "dfdfdf",
+        "prenom": "fffgfg",
+        "password": "8b6832f35a015a55df7267b59aa6acc19ccaacc2146f391027fed2586688ebc3",
+        "status": true,
+        "role": "user",
+        "connexion": true,
+        "derniere_connexion": "2025-07-01 18:20:40",
+        "date_creation": "2025-07-01 10:55:17",
+        "photo_profil": "default.png"
+    }
+}
