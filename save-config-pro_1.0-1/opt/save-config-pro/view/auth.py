@@ -324,7 +324,6 @@ class LoginFrame(tk.Frame):
             "date_connexion": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "connect": connect,
             "tentative": tentative,
-            "date_deconnexion": None
         }
 
         historique.append(nouvelle_entree)

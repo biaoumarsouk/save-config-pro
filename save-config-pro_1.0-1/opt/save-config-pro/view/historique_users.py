@@ -71,11 +71,15 @@ class HistoriqueUsers(tk.Frame):
         self.table_frame.grid_columnconfigure(0, weight=1)
         self.theme_manager.register_widget(self.table_frame, 'bg_main')
 
-        self.columns = ("Utilisateur", "Date de Connexion", "Date de Déconnexion", "Autorisation")
+        # Nouvelle colonne "Action" ajoutée
+        self.columns = ("Utilisateur", "Date de Connexion", "Date de Déconnexion", "Action", "Autorisation")
         self.tree = ttk.Treeview(self.table_frame, columns=self.columns, show="headings")
-        for col in self.columns:
+        
+        # Configuration des colonnes
+        col_widths = [150, 180, 180, 80, 100]  # Largeurs ajustées pour la nouvelle colonne
+        for col, width in zip(self.columns, col_widths):
             self.tree.heading(col, text=col)
-            self.tree.column(col, anchor="center", stretch=True)
+            self.tree.column(col, width=width, anchor="center", stretch=False)
 
         vsb = ttk.Scrollbar(self.table_frame, orient="vertical", command=self.tree.yview)
         self.tree.configure(yscrollcommand=vsb.set)
@@ -87,13 +91,12 @@ class HistoriqueUsers(tk.Frame):
         self.tree.bind("<Configure>", self.adjust_column_widths)
         self.tree.bind("<Double-1>", self.supprimer_ligne_selectionnee)
 
-
     def adjust_column_widths(self, event):
-        total_width = event.width
+        total_width = event.width - 20  # Marge pour la barre de défilement
         col_count = len(self.columns)
         if col_count > 0:
             for col in self.columns:
-                self.tree.column(col, width=total_width // col_count)
+                self.tree.column(col, width=int(total_width / col_count))
 
     def load_historique(self):
         if os.path.exists(FICHIER_HISTORIQUE):
@@ -107,13 +110,23 @@ class HistoriqueUsers(tk.Frame):
         self.tree.delete(*self.tree.get_children())  # vide le tableau avant insertion
         for item in self.historique:
             utilisateur = item.get("utilisateur", "")
-            date_conn = item.get("date_connexion", "")
+            date_conn = item.get("date_connexion", "") or "—"
             date_deconn = item.get("date_deconnexion", "") or "—"
+            
+            # Détermine le type d'action
+            if date_conn != "—" and date_deconn == "—":
+                action = "Entrée"
+            elif date_deconn != "—":
+                action = "Sortie"
+            else:
+                action = "—"  # Cas par défaut
 
             autorisation = "Refusée" if item.get("tentative", False) else "Autorisée"
             tag = ('refuse',) if item.get("tentative", False) else ()
 
-            self.tree.insert("", tk.END, values=(utilisateur, date_conn, date_deconn, autorisation), tags=tag)
+            self.tree.insert("", tk.END, 
+                            values=(utilisateur, date_conn, date_deconn, action, autorisation), 
+                            tags=tag)
 
     def supprimer_tout(self):
         if messagebox.askyesno("Confirmation", "Voulez-vous vraiment supprimer tout l'historique ?"):
@@ -126,27 +139,53 @@ class HistoriqueUsers(tk.Frame):
         item_id = self.tree.focus()
         if not item_id:
             return
+        
         valeurs = self.tree.item(item_id, "values")
-        utilisateur, date_conn = valeurs[0], valeurs[1]
-
-        if messagebox.askyesno("Supprimer l'entrée", f"Supprimer l'entrée de {utilisateur} du {date_conn} ?"):
+        if not valeurs or len(valeurs) < 5:  # Vérifie qu'on a bien une ligne valide
+            return
+        
+        utilisateur, date_entree, date_sortie, action, statut = valeurs
+        
+        # Message personnalisé selon le type d'action
+        if messagebox.askyesno(
+            "Confirmer la suppression",
+            f"Voulez-vous vraiment supprimer l'enregistrement de {action.lower()} de {utilisateur} du {date_entree if action == 'Entrée' else date_sortie} ?",
+            icon='question'
+        ):
+            # Filtre l'historique pour supprimer l'entrée correspondante
             self.historique = [
                 h for h in self.historique
-                if not (h.get("utilisateur") == utilisateur and h.get("date_connexion") == date_conn)
+                if not (
+                    h.get("utilisateur") == utilisateur and 
+                    (
+                        (action == "Entrée" and h.get("date_connexion") == date_entree) or
+                        (action == "Sortie" and h.get("date_deconnexion") == date_sortie)
+                    )
+                )
             ]
-            with open(FICHIER_HISTORIQUE, "w") as f:
-                json.dump(self.historique, f, indent=4)
-            self.insert_data()
+            
+            # Sauvegarde les modifications
+            try:
+                with open(FICHIER_HISTORIQUE, "w", encoding='utf-8') as f:
+                    json.dump(self.historique, f, indent=4, ensure_ascii=False)
+                self.insert_data()
+            except IOError as e:
+                messagebox.showerror("Erreur", f"Impossible de sauvegarder les modifications: {str(e)}")
 
     def exporter_historique(self):
         if not self.historique:
             messagebox.showinfo("Aucun historique", "Aucune donnée à exporter.")
             return
 
-        fichier = filedialog.asksaveasfilename(defaultextension=".json",
-                                               filetypes=[("Fichiers JSON", "*.json")],
-                                               title="Exporter l'historique")
+        fichier = filedialog.asksaveasfilename(
+            defaultextension=".json",
+            filetypes=[("Fichiers JSON", "*.json"), ("Tous les fichiers", "*.*")],
+            title="Exporter l'historique"
+        )
         if fichier:
-            with open(fichier, "w") as f:
-                json.dump(self.historique, f, indent=4)
-            messagebox.showinfo("Exportation réussie", "Historique exporté avec succès.")
+            try:
+                with open(fichier, "w", encoding='utf-8') as f:
+                    json.dump(self.historique, f, indent=4, ensure_ascii=False)
+                messagebox.showinfo("Exportation réussie", f"Historique exporté avec succès vers:\n{fichier}")
+            except Exception as e:
+                messagebox.showerror("Erreur", f"Échec de l'exportation:\n{str(e)}")

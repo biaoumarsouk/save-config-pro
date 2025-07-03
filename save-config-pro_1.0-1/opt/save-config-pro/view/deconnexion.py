@@ -73,7 +73,6 @@ class Deconnexion:
             
             nouvelle_entree = {
                 "utilisateur": self.username,
-                "date_connexion": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                 "date_deconnexion": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                 "connect": False
             }

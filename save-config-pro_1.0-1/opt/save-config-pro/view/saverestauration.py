@@ -5,12 +5,12 @@ import os
 import platform
 import subprocess
 from .composants.loading import run_with_loading
-from .composants.scr_restore import generate_restore_files
+from datetime import datetime
 
 class DetailsSaveRestaurationFrame(tk.Toplevel):
     fenetre_ouverte = False  # contrôle unique pour empêcher plusieurs fenêtres
 
-    def __init__(self, parent, details, theme_manager):
+    def __init__(self, parent, details, theme_manager,current_user=None):
         super().__init__(parent)
         self.theme_manager = theme_manager
         self.title("Détails de l'équipement")
@@ -23,6 +23,7 @@ class DetailsSaveRestaurationFrame(tk.Toplevel):
         self.type_equipement = details[2]
         self.dossier_sauvegarde = "/home/ftpuser"
         self.open_file_window = None
+        self.current_user = current_user  # Nouvel attribut pour stocker l'utilisateur
 
         # JSON path
         fichiers = {
@@ -126,6 +127,7 @@ class DetailsSaveRestaurationFrame(tk.Toplevel):
         self.grab_set()
         self.focus()
 
+
     def toggle_mdp_visibility(self):
         self.mdp_visible = not self.mdp_visible
         self.mdp_entry.config(show="" if self.mdp_visible else "*")
@@ -141,11 +143,13 @@ class DetailsSaveRestaurationFrame(tk.Toplevel):
         try:
             fichiers = os.listdir(self.dossier_sauvegarde)
             fichiers_associes = [f for f in fichiers if self.mac.replace(":", "-").upper() in f]
-            fichiers_associes.sort()
+            fichiers_associes.sort(key=lambda x: os.path.getmtime(os.path.join(self.dossier_sauvegarde, x)), reverse=True)
 
             for fichier in fichiers_associes:
-                heure = fichier.split("_")[-1].replace(".cfg", "").replace(".rsc", "")
-                self.file_listbox.insert(tk.END, f"{heure}    |    {fichier}")
+                # Récupérer la date de modification du fichier
+                timestamp = os.path.getmtime(os.path.join(self.dossier_sauvegarde, fichier))
+                date_modif = datetime.fromtimestamp(timestamp).strftime("%Y-%m-%d %H:%M:%S")
+                self.file_listbox.insert(tk.END, f"{date_modif}    |    {fichier}")
 
             if not fichiers_associes:
                 self.file_listbox.insert(tk.END, "Aucun fichier trouvé pour cet équipement.")
@@ -275,47 +279,154 @@ class DetailsSaveRestaurationFrame(tk.Toplevel):
                 )
 
     def executer_restauration(self, filename, ip, username, password, enable_password, type_equipement, system="ios"):
-        """Exécute le script de restauration avec les paramètres appropriés"""
+        """Exécute le script de restauration et enregistre les détails dans restauration.json"""
         try:
             from .composants.scr_restore import generate_restore_files
+            import json
+            from datetime import datetime
+            import os
+
+            # Mapping des types d'équipements vers les noms normalisés
+            type_normalisation = {
+                "cisco": "cisco",
+                "mikrotik": "mikrotik",
+                "huawei": "huawei",
+                "juniper": "juniper",
+                "fortinet": "fortinet",
+                "asa": "cisco",  # Cisco ASA
+                "ios": "cisco",  # Cisco IOS
+                "routeros": "mikrotik",
+                "fortigate": "fortinet"
+            }
 
             # Normalisation du type d'équipement
-            device_type = "cisco" if "cisco" in type_equipement.lower() else "mikrotik"
+            device_type = None
+            for key, value in type_normalisation.items():
+                if key in type_equipement.lower():
+                    device_type = value
+                    break
+            
+            if device_type is None:
+                raise ValueError(f"Type d'équipement non reconnu: {type_equipement}")
 
-            # Trouver les informations pour l'IP donnée
+            # Mapping des fichiers JSON par type d'équipement
             json_file_map = {
-                "Cisco": "cisco_save.json",
-                "MikroTik": "mikrotik_save.json",
-                "Huawei": "huawei_save.json",
-                "Juniper": "juniper_save.json",
-                "Fortinet": "fortinet_save.json"
+                "cisco": "cisco_save.json",
+                "mikrotik": "mikrotik_save.json",
+                "huawei": "huawei_save.json",
+                "juniper": "juniper_save.json",
+                "fortinet": "fortinet_save.json"
             }
 
             base_path = os.path.join(os.path.dirname(__file__), 'files')
-            json_file = json_file_map.get(type_equipement)
+            json_file = json_file_map.get(device_type)
             json_path = os.path.join(base_path, json_file) if json_file else None
 
-            if json_path and os.path.exists(json_path):
-                with open(json_path, "r") as f:
-                    data = json.load(f)
-                    system = next((item["system"] for item in data if item["ip"] == ip), "inconnu")
-            else:
-                system = "inconnu"
+            # Récupérer les informations de l'équipement
+            device_info = {
+                "mac": "inconnu",
+                "name": "inconnu",
+                "ip": ip,
+                "type": type_equipement,
+                "system": system
+            }
 
+            if json_path and os.path.exists(json_path):
+                try:
+                    with open(json_path, "r") as f:
+                        data = json.load(f)
+                        if isinstance(data, list):
+                            device = next((item for item in data if item.get("ip") == ip), None)
+                            if device:
+                                device_info.update({
+                                    "mac": device.get("mac", "inconnu"),
+                                    "name": device.get("name", "inconnu"),
+                                    "system": device.get("system", system)
+                                })
+                except Exception as e:
+                    print(f"Erreur lecture fichier équipement: {str(e)}")
+
+            # Exécuter la restauration
             generate_restore_files(
                 config_file=filename,
                 ip=ip,
                 username=username,
                 password=password,
                 device_type=device_type,
-                system=system,
+                system=device_info["system"],  # Utilise le système de l'appareil si trouvé
                 enable_password=enable_password
             )
 
-            messagebox.showinfo("Succès", f"Les fichiers de restauration {device_type} ({system}) ont été générés avec succès")
-        except Exception as e:
-            messagebox.showerror("Erreur", f"Une erreur est survenue: {str(e)}")
+            # Enregistrement dans restauration.json
+            log_entry = {
+                "equipement": {
+                    "mac": device_info["mac"],
+                    "name": device_info["name"],
+                    "ip": device_info["ip"],
+                    "type": device_info["type"],
+                    "system": device_info["system"]
+                },
+                "fichiers_utilises": filename,
+                "date_execution": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "username": self.current_user,
+                "type_operation": "restauration",
+                "status": "succès"
+            }
 
+            restauration_path = os.path.join(base_path, 'restauration.json')
+            
+            # Lire les entrées existantes ou créer un nouveau fichier
+            existing_data = []
+            if os.path.exists(restauration_path):
+                try:
+                    with open(restauration_path, 'r') as f:
+                        existing_data = json.load(f)
+                        if not isinstance(existing_data, list):
+                            existing_data = []
+                except (json.JSONDecodeError, Exception):
+                    existing_data = []
+
+            # Ajouter la nouvelle entrée
+            existing_data.append(log_entry)
+
+            # Écrire le fichier
+            with open(restauration_path, 'w') as f:
+                json.dump(existing_data, f, indent=4)
+
+            messagebox.showinfo("Succès", 
+                f"Restauration {device_type} ({device_info['system']}) effectuée avec succès\n"
+                f"Équipement: {device_info['name']} ({ip})\n"
+                f"Fichier: {filename}")
+                
+        except Exception as e:
+            # Enregistrer l'échec dans le log
+            error_log = {
+                "equipement": {
+                    "ip": ip,
+                    "type": type_equipement,
+                    "error": str(e)
+                },
+                "date_execution": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "username": self.current_user,
+                "type_operation": "restauration",
+                "status": "échec"
+            }
+            
+            if 'restauration_path' in locals():
+                try:
+                    with open(restauration_path, 'r') as f:
+                        existing_data = json.load(f)
+                        if not isinstance(existing_data, list):
+                            existing_data = []
+                except (json.JSONDecodeError, Exception):
+                    existing_data = []
+                
+                existing_data.append(error_log)
+                
+                with open(restauration_path, 'w') as f:
+                    json.dump(existing_data, f, indent=4)
+
+            messagebox.showerror("Erreur", f"Une erreur est survenue: {str(e)}")
     def charger_donnees_json(self, chemin):
         if not chemin or not os.path.exists(chemin):
             return []
@@ -359,6 +470,10 @@ class SaveRestauration(tk.Frame):
         # Création des widgets
         self.create_widgets()
         self.load_data_with_loading()
+
+    def set_current_user(self, username):
+        """Définit l'utilisateur actuellement connecté"""
+        self.current_user = username
    
     def create_widgets(self):
         """Crée les widgets principaux avec layout grid responsive"""
@@ -605,7 +720,13 @@ class SaveRestauration(tk.Frame):
             item_values = self.tree.item(selected_item)["values"]
             if self.details_window and self.details_window.winfo_exists():
                 return
-            self.details_window = DetailsSaveRestaurationFrame(self, item_values, self.theme_manager)
+            
+            self.details_window = DetailsSaveRestaurationFrame(
+                self, 
+                item_values, 
+                self.theme_manager,
+                current_user=self.current_user  # Passage de l'utilisateur connecté
+            )
             self.details_window.protocol("WM_DELETE_WINDOW", self.on_details_window_close)
 
     def on_details_window_close(self):
@@ -621,7 +742,7 @@ class SaveRestauration(tk.Frame):
         data = []
         for item_id in self.tree.get_children():
             values = self.tree.item(item_id)["values"]
-            status = "connecté" if values[3] == "✔️" else "non connecté"
+            status = "connecté" if values[3] == "En sauvegarde" else "Pas en sauvegarde"
             data.append({
                 "nom": values[0],
                 "ip": values[1],

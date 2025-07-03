@@ -38,6 +38,20 @@ def get_default_local_ip():
     except Exception:
         return None
 
+def get_subnet_for_ip(ip, subnets):
+    """Détermine à quel sous-réseau appartient une IP donnée"""
+    try:
+        ip_int = struct.unpack("!I", socket.inet_aton(ip))[0]
+        for subnet_cidr in subnets:
+            subnet_ip, subnet_mask = subnet_cidr.split('/')
+            subnet_int = struct.unpack("!I", socket.inet_aton(subnet_ip))[0]
+            mask_int = (0xFFFFFFFF << (32 - int(subnet_mask))) & 0xFFFFFFFF
+            if (ip_int & mask_int) == (subnet_int & mask_int):
+                return subnet_cidr
+    except Exception:
+        return None
+    return None
+
 # Charger les sous-réseaux
 networks_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'files', 'networks.json')
 subnets = []
@@ -52,36 +66,42 @@ except (json.JSONDecodeError, Exception) as e:
     print(f"[AVERTISSEMENT] Erreur lors de la lecture de networks.json: {e}")
     subnets = []
 
-# Trouver l'IP du serveur FTP
-ftp_server_ip = None
+# Dictionnaire pour stocker les IPs des serveurs FTP par sous-réseau
+subnet_ftp_servers = {}
 
-# Essayer d'abord avec les sous-réseaux configurés
+# Trouver l'IP locale dans chaque sous-réseau
 for subnet in subnets:
-    ftp_server_ip = get_local_ip_in_subnet(subnet)
-    if ftp_server_ip:
-        break
+    ftp_ip = get_local_ip_in_subnet(subnet)
+    if ftp_ip:
+        subnet_ftp_servers[subnet] = ftp_ip
 
-# Si aucune IP n'a été trouvée via les sous-réseaux
-if not ftp_server_ip:
-    ftp_server_ip = get_default_local_ip()
-    if ftp_server_ip:
-        print(f"[INFO] Utilisation de l'IP locale par défaut: {ftp_server_ip}")
+def generate_restore_files(config_file, ip, username, password, device_type, system="ios", enable_password=None):
+    """Génère les fichiers et exécute le playbook Ansible pour la restauration"""
+    # Trouver le sous-réseau de l'équipement
+    subnet_cidr = get_subnet_for_ip(ip, subnets)
+    
+    # Déterminer l'IP du serveur FTP
+    if subnet_cidr and subnet_cidr in subnet_ftp_servers:
+        ftp_server_ip = subnet_ftp_servers[subnet_cidr]
+        print(f"[INFO] Utilisation du serveur FTP {ftp_server_ip} pour le sous-réseau {subnet_cidr}")
     else:
-        # Demander à l'utilisateur de saisir l'IP manuellement
-        try:
-            ftp_server_ip = input("Veuillez entrer l'adresse IP du serveur FTP: ")
-            if not ftp_server_ip:
-                raise RuntimeError("Aucune adresse IP de serveur FTP fournie")
-        except Exception:
-            raise RuntimeError("""
+        ftp_server_ip = get_default_local_ip()
+        if ftp_server_ip:
+            print(f"[INFO] Utilisation de l'IP locale par défaut: {ftp_server_ip}")
+        else:
+            # Demander à l'utilisateur de saisir l'IP manuellement
+            try:
+                ftp_server_ip = input("Veuillez entrer l'adresse IP du serveur FTP: ")
+                if not ftp_server_ip:
+                    raise RuntimeError("Aucune adresse IP de serveur FTP fournie")
+            except Exception:
+                raise RuntimeError("""
 Impossible de déterminer l'adresse IP du serveur FTP. Veuillez :
 1. Vérifier que le fichier networks.json contient des sous-réseaux valides, ou
 2. Configurer manuellement l'adresse IP du serveur FTP, ou
 3. Vérifier que votre interface réseau est correctement configurée
 """)
 
-def generate_restore_files(config_file, ip, username, password, device_type, system="ios", enable_password=None):
-    """Génère les fichiers et exécute le playbook Ansible pour la restauration"""
     composants_dir = os.path.dirname(os.path.abspath(__file__))
     projet_root = os.path.dirname(composants_dir)
     files_dir = os.path.join(projet_root, 'files')
@@ -146,7 +166,7 @@ ssh_args = -o KexAlgorithms=+diffie-hellman-group14-sha1,diffie-hellman-group1-s
   vars:
     ftp_server: "{ftp_server_ip}"
     ftp_username: "ftpuser"
-    ftp_password: "Marsouk57"
+    ftp_password: "Ftpuser57"
     config_file: "{config_file}"
 
   tasks:
@@ -181,7 +201,7 @@ command_timeout = 300
   vars:
     ftp_address: "{ftp_server_ip}"
     ftp_user: "ftpuser"
-    ftp_password: "Marsouk57"
+    ftp_password: "Ftpuser57"
     rsc_file_name: "{config_file}"
 
   tasks:
@@ -209,6 +229,38 @@ command_timeout = 300
         inventory_content = f"""# Fichier généré le {timestamp}
 [all]
 {ip} ansible_host={ip} ansible_user={username} ansible_ssh_pass={password} ansible_network_os=routeros ansible_connection=network_cli{become_line}
+"""
+
+    elif device_type.lower() == "fortinet":
+        ansible_cfg += """\n[persistent_connection]
+connect_timeout = 60
+command_timeout = 300
+"""
+        playbook_content = f"""---
+- name: Restauration FortiGate depuis FTP
+  hosts: all
+  gather_facts: no
+  vars:
+    ftp_server: "{ftp_server_ip}"
+    ftp_username: "ftpuser"
+    ftp_password: "Ftpuser57"
+    config_file: "{config_file}"
+
+  tasks:
+    - name: Télécharger la configuration depuis FTP
+      community.network.fortios_command:
+        commands:
+          - execute restore config ftp {{{{ config_file }}}} {{{{ ftp_server }}}} {{{{ ftp_username }}}} {{{{ ftp_password }}}}
+      register: download_result
+      ignore_errors: yes
+
+    - name: Vérifier le résultat du téléchargement
+      debug:
+        var: download_result
+"""
+        inventory_content = f"""# Fichier généré le {timestamp}
+[all]
+{ip} ansible_host={ip} ansible_user={username} ansible_ssh_pass={password} ansible_network_os=fortios ansible_connection=httpapi ansible_httpapi_use_ssl=no ansible_httpapi_validate_certs=no{become_line}
 """
 
     else:
@@ -252,7 +304,7 @@ if __name__ == "__main__":
     parser.add_argument('--ip', required=True, help='Adresse IP de l\'équipement')
     parser.add_argument('--username', required=True, help='Nom d\'utilisateur')
     parser.add_argument('--password', required=True, help='Mot de passe')
-    parser.add_argument('--device_type', required=True, choices=['cisco', 'mikrotik'], help='Type d\'équipement')
+    parser.add_argument('--device_type', required=True, choices=['cisco', 'mikrotik', 'fortinet'], help='Type d\'équipement')
     parser.add_argument('--system', default='ios', help='Sous-type (ios ou asa pour Cisco)')
     parser.add_argument('--enable_password', help='Mot de passe enable (si requis)', default=None)
 

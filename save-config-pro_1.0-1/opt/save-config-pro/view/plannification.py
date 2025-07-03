@@ -572,7 +572,6 @@ class BackupScheduler(tk.Frame):
             lbl.grid(row=0, column=i, sticky="", pady=(10,0))
             self.theme_manager.register_widget(lbl, 'bg_main', 'fg_main')
             self.labels.append(lbl)
-
         # Labels valeurs
         self.days_label = tk.Label(inner_frame, text="00", font=("Courier", 20, "bold"), fg="red")
         self.days_label.grid(row=1, column=0, pady=(0,10))

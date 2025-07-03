@@ -4,6 +4,7 @@ from tkinter import messagebox
 from view.scan_network import NetworkScanner
 from view.saverestauration import SaveRestauration
 from view.historique_sauvegardes import HistoriqueSauvegarde
+from view.historique_restauration import HistoriqueRestauration
 from view.network_selection import SousReseaux
 from view.network_enregistres import SousReseauxEnregistres
 from view.plannification import BackupScheduler
@@ -265,8 +266,20 @@ class NetworkConfigApp(tk.Tk):
             self.menu_visible = True
             self.toggle_btn.config(text="◀")
 
+    # Dans la classe NetworkConfigApp
+
     def clear_main_content(self):
-        """Vide le contenu principal"""
+        """
+        Nettoie le contenu principal et arrête proprement les processus en
+        arrière-plan des vues complexes comme le Dashboard.
+        """
+        # On vérifie si un dashboard existe et est encore un widget valide
+        if hasattr(self, 'dashboard') and self.dashboard and self.dashboard.winfo_exists():
+            print("[INFO] Nettoyage de la vue Dashboard avant de changer de vue...")
+            self.dashboard.prepare_for_close()
+            # On supprime la référence pour éviter de la réutiliser par erreur
+            self.dashboard = None 
+        # Ensuite, on détruit tous les widgets enfants de main_content
         for widget in self.main_content.winfo_children():
             widget.destroy()
 
@@ -529,6 +542,7 @@ class NetworkConfigApp(tk.Tk):
             theme_manager=self.theme_manager
         )
         self.sauvegarde_view.grid(row=0, column=0, sticky="nsew")  # Positionnement en grid
+        self.sauvegarde_view.set_current_user(self.nom_utilisateur)
 
         # Ajout des boutons standard
         self.create_buttons()
@@ -549,6 +563,29 @@ class NetworkConfigApp(tk.Tk):
 
         # Crée le frame SousReseaux
         self.sous_reseaux_frame = HistoriqueSauvegarde(
+            parent=self.main_zone,  # Changé de main_content à main_zone
+            theme_manager=self.theme_manager
+        )
+        self.sous_reseaux_frame.grid(row=0, column=0, sticky="nsew")  # Utilisation de grid au lieu de pack
+
+        # Crée les boutons
+        self.create_buttons()
+
+    def show_historique_restauration(self):
+        self.clear_main_content()
+
+        self.main_zone = tk.Frame(self.main_content)
+        self.main_zone.pack(fill="both", expand=True)  # Utilisation de pack comme dans init_scanner
+        
+        # Configuration de la grille à l'intérieur de main_zone
+        self.main_zone.grid_rowconfigure(0, weight=1)  # Contenu principal prend l'espace disponible
+        self.main_zone.grid_rowconfigure(1, weight=0)  # Boutons taille fixe
+        self.main_zone.grid_columnconfigure(0, weight=1)
+        
+        self.theme_manager.register_widget(self.main_zone, 'bg_main')
+
+        # Crée le frame SousReseaux
+        self.sous_reseaux_frame = HistoriqueRestauration(
             parent=self.main_zone,  # Changé de main_content à main_zone
             theme_manager=self.theme_manager
         )
@@ -637,6 +674,7 @@ class NetworkConfigApp(tk.Tk):
             choices=[
                 ("Mes sauvegardes", self.show_saverestauration),
                 ("Historiques des sauvegardes", self.show_historique_sauvegardes),
+                ("Historiques des Restaurations", self.show_historique_restauration)
             ]
         )
         
@@ -695,24 +733,27 @@ class NetworkConfigApp(tk.Tk):
         users_file_path = os.path.join(os.path.dirname(__file__), "view", "files", "users.json")
         # Créer et utiliser la classe Deconnexion
         Deconnexion(
-            parent=self,  # self fait référence à la fenêtre principale
-            username=self.nom_utilisateur,  # Assurez-vous que cette variable est disponible
+            parent=self, 
+            username=self.nom_utilisateur,  
             users_file_path=users_file_path
         ).deconnecter()
 
 
+    # Dans la classe NetworkConfigApp
+
     def fermer(self):
-        """Gère la déconnexion de l'utilisateur et la fermeture de l'application"""
-        # Chemin vers le fichier users.json
+        """Gère la déconnexion et la fermeture de l'application"""
         users_file_path = os.path.join(os.path.dirname(__file__), "view", "files", "users.json")
         
-        # Fermeture de l'application
+        dashboard_instance = getattr(self, 'dashboard', None) 
+        
         Fermer(
             parent=self,
+            dashboard_instance=dashboard_instance,
             username=getattr(self, 'nom_utilisateur', None),
             users_file_path=users_file_path
-        ).fermer_application()
-        
+        ).demander_fermeture()
+            
 
                 
 

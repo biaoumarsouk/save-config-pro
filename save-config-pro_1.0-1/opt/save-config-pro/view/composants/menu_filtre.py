@@ -58,7 +58,7 @@ class ToggleMenu(tk.Frame):
             self.menu_panel, text="➡", font=("Helvetica", 12, "bold"),
             relief="flat", cursor="hand2", command=self.close_menu
         )
-        self.theme_manager.register_widget(close_btn, 'bg_secondary', 'fg_main')
+        self.theme_manager.register_widget(close_btn, 'bg_secondary', 'fg_main','bg_hover')
         close_btn.config(
             activebackground=self.theme_manager.bg_hover,
             activeforeground=self.theme_manager.fg_main
@@ -136,7 +136,7 @@ class ToggleMenu(tk.Frame):
             relief="flat", cursor="hand2", command=self.toggle_menu
         )
         self.toggle_button.place(relx=1.0, rely=0.5, anchor="e", x=10)
-        self.theme_manager.register_widget(self.toggle_button, 'bg_main', 'fg_main')
+        self.theme_manager.register_widget(self.toggle_button, 'bg_main', 'fg_main','bg_hover')
         self.toggle_button.config(
             activebackground=self.theme_manager.bg_hover,
             activeforeground=self.theme_manager.fg_main
