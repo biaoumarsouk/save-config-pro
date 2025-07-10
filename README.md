@@ -12,5 +12,6 @@ Ou directement via ce lien :
 ```bash
 sudo dpkg -i save-config-pro_1.0-1.deb
 sudo apt-get install -f
+sudo /opt/save-config-pro/install.sh
 
 # Mesprojets
